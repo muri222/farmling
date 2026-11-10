@@ -1,5 +1,5 @@
 {
-  "name": "life",
+  "name": "farmling",
   "version": "1.0.0",
   "private": true,
   "main": "main.js",
@@ -15,12 +15,12 @@
   "dependencies": {
     "node-llama-cpp": "^3.22.3"
   },
-  "description": "Life?: um fazendeiro de pixel art que vive na tela do seu computador, com uma IA local que cria a história dele.",
+  "description": "Farmling: a tiny life on your desktop. Um fazendeiro de pixel art com mundo vivo e IA local.",
   "author": "muri222",
   "build": {
-    "appId": "com.murillo.life",
-    "productName": "Life",
-    "copyright": "Life?",
+    "appId": "com.murillo.farmling",
+    "productName": "Farmling",
+    "copyright": "Farmling",
     "directories": {
       "output": "dist"
     },
@@ -54,7 +54,7 @@
         }
       ],
       "icon": "assets/icone.ico",
-      "executableName": "Life"
+      "executableName": "Farmling"
     },
     "nsis": {
       "oneClick": false,
@@ -62,11 +62,11 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Life",
+      "shortcutName": "Farmling",
       "language": "1046",
       "installerIcon": "assets/icone.ico",
       "uninstallerIcon": "assets/icone.ico",
-      "artifactName": "Life-Setup-${version}.exe"
+      "artifactName": "Farmling-Setup-${version}.exe"
     }
   }
 }

@@ -3,10 +3,9 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-// nome do jogo: "Life?" na tela (o Windows nao aceita "?" em arquivo, entao o exe/instalador se chamam Life)
-app.setName('Life');
-app.setAppUserModelId('com.murillo.life');
-// quem ja usava a versao com o nome antigo (Vidinha) mantem saves e modelo de IA na mesma pasta
+app.setName('Farmling');
+app.setAppUserModelId('com.murillo.farmling');
+// quem ja usava uma versao com nome antigo (Vidinha) mantem saves e modelo de IA na mesma pasta
 { const velha = path.join(app.getPath('appData'), 'Vidinha'); if (fs.existsSync(velha)) app.setPath('userData', velha); }
 
 if (!app.requestSingleInstanceLock()) app.exit(); // exit e imediato: a segunda copia nao chega a abrir nada
@@ -30,7 +29,7 @@ const mostrar = () => { if (!janela) return; janela.show(); janela.focus(); };
 
 function menuTray() {
   tray?.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Mostrar Life?', click: mostrar },
+    { label: 'Mostrar Farmling', click: mostrar },
     { type: 'separator' },
     { label: 'Fixar no topo', type: 'checkbox', checked: conf.topo, click: i => setTopo(i.checked) },
     { label: 'Mostrar na barra de tarefas', type: 'checkbox', checked: conf.barra, click: i => setBarra(i.checked) },
@@ -51,7 +50,7 @@ app.whenReady().then(() => {
   janela = new BrowserWindow({
     width: w, height: h, x: a.x + a.width - w - 12, y: a.y + a.height - h - 12,
     frame: false, transparent: true, resizable: false, alwaysOnTop: conf.topo, skipTaskbar: !conf.barra,
-    title: 'Life?', icon: path.join(__dirname, 'assets', 'icone.png'),
+    title: 'Farmling', icon: path.join(__dirname, 'assets', 'icone.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js') },
   });
   janela.loadFile('index.html');
@@ -59,7 +58,7 @@ app.whenReady().then(() => {
   janela.on('close', e => { if (!saindo) { e.preventDefault(); janela.hide(); } });
   try {
     tray = new Tray(nativeImage.createFromPath(path.join(__dirname, 'assets', 'icone.png')).resize({ width: 16, height: 16 }));
-    tray.setToolTip('Life?');
+    tray.setToolTip('Farmling');
     tray.on('click', mostrar);
     menuTray();
   } catch (e) { console.error('tray:', e.message); }
