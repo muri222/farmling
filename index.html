@@ -53,6 +53,17 @@
   #fechar, #expandir { position: absolute; top: 8px; z-index: 2; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 12px; background: rgba(0,0,0,.62); color: var(--fg); font: bold 13px/24px Consolas, monospace; cursor: pointer; }
   #fechar { right: 38px; } #expandir { left: 10px; }
   #fechar:hover, #expandir:hover { background: var(--fg); color: var(--bg); }
+  #chat { position: absolute; inset: 6px; z-index: 6; padding: 8px 10px; border-radius: 18px; background: rgba(8,10,8,.98); color: var(--fg); display: flex; flex-direction: column;
+    box-shadow: inset 0 0 0 2px var(--fg); font: bold 11px/14px Consolas, monospace; }
+  #chat button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  #chatlog { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--fg) transparent; display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; }
+  .msg { max-width: 86%; padding: 5px 8px; border-radius: 10px; font-weight: normal; font-size: 12px; line-height: 15px; overflow-wrap: anywhere; }
+  .msg.f { align-self: flex-start; background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px rgba(255,255,255,.15); } .msg.f b { display: block; font-size: 10px; }
+  .msg.u { align-self: flex-end; background: var(--fg); color: var(--bg); }
+  #chatf { display: flex; gap: 6px; margin-top: 6px; }
+  #chatf input { flex: 1; min-width: 0; padding: 6px 8px; border: 0; border-radius: 8px; background: rgba(255,255,255,.1); color: #fff; font: 12px Consolas, monospace; box-shadow: inset 0 0 1px 1px var(--fg); outline: none; }
+  #chatf button { padding: 6px 10px; border-radius: 8px; background: var(--fg); color: var(--bg); font-size: 11px; }
+  #chat .av { color: #fd8; font-weight: normal; margin: 4px 0 0; }
   #diario { pointer-events: auto; cursor: pointer; } #legenda { cursor: pointer; } #tv.arrasta * { cursor: grabbing !important; }
   [hidden] { display: none !important; }
   #menu, #pop, #iaw { scrollbar-width: thin; scrollbar-color: var(--fg) transparent; }
@@ -87,7 +98,7 @@
     <button id="fechar" title="Minimizar para a bandeja">✕</button>
     <button id="expandir" title="Expandir" hidden>⤢</button>
     <div id="vel"></div>
-    <div id="zoom"><button id="z-m" title="Afastar (roda do mouse)">−</button><button id="z-c" title="Seguir o fazendeiro (cena e camera)">⌖</button><button id="z-p" title="Aproximar (roda do mouse)">+</button><button id="z-h" title="Histórico">≡</button></div>
+    <div id="zoom"><button id="z-m" title="Afastar (roda do mouse)">−</button><button id="z-c" title="Seguir o fazendeiro (cena e camera)">⌖</button><button id="z-p" title="Aproximar (roda do mouse)">+</button><button id="z-h" title="Histórico">≡</button><button id="z-chat" title="Conversar">💬</button></div>
   </div>
   <div id="hud"><div id="h1"></div><div id="h2"></div><div id="h3"></div></div>
   <div id="ctl">
@@ -96,7 +107,7 @@
     <button id="c-crt" title="Efeito CRT">CRT</button><button id="c-cor" title="Trocar cor"></button>
   </div>
   <div id="legenda" aria-live="polite" title="Histórico"></div>
-  <div id="menu" hidden></div><div id="pop" hidden></div><div id="iaw" hidden></div>
+  <div id="menu" hidden></div><div id="pop" hidden></div><div id="iaw" hidden></div><div id="chat" hidden></div>
 </div>
 
 
@@ -183,8 +194,8 @@ function proxima() {
 // ---------- mente ----------
 let iaAtiva = false; // vira true quando ha um modelo de IA escolhido (janela do cerebro)
 let pensando = false, iaFila = Promise.resolve(), iaPend = 0;
-function pedeIA(p) { // um pedido por vez pro modelo; se ja ha 3 na fila, descarta (nao trava o app)
-  if (!iaAtiva || !window.ia || iaPend >= 3) return Promise.resolve(null);
+function pedeIA(p, forca) { // um pedido por vez pro modelo; se ja ha 3 na fila, descarta (nao trava o app); o chat (forca) nunca e descartado
+  if (!iaAtiva || !window.ia || (iaPend >= 3 && !forca)) return Promise.resolve(null);
   iaPend++;
   const r = iaFila.then(() => window.ia(p)).catch(() => null);
   iaFila = r; r.finally(() => iaPend--);
@@ -681,7 +692,7 @@ $('tela').addEventListener('wheel', e => { e.preventDefault(); zoom(e.deltaY < 0
 // ---------- janela: arrastar (feito por codigo: funciona em qualquer area), fechar pra bandeja ----------
 let arr = null, arrastou = false;
 $('tv').addEventListener('pointerdown', e => {
-  if (e.button !== 0 || e.target.closest('button, input, #menu, #pop, #iaw')) return;
+  if (e.button !== 0 || e.target.closest('button, input, #menu, #pop, #iaw, #chat')) return;
   arr = { x: e.clientX, y: e.clientY, mov: false, id: e.pointerId }; arrastou = false;
 });
 addEventListener('pointermove', e => {
@@ -694,6 +705,46 @@ addEventListener('pointerup', solta); addEventListener('pointercancel', solta);
 $('tela').onclick = e => arrastou ? (arrastou = false) : e.target.closest('#zoom, #vel, #eng, #fechar, #expandir, #diario') ? 0 : pensar();
 $('fechar').onclick = () => window.app ? app.esconder() : close();
 
+// ---------- chat: conversar com o fazendeiro ----------
+let chatOcupado = false;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function atualizaLog() {
+  const el = $('chatlog'); if (!el) return;
+  el.innerHTML = s.chat.map(m => `<div class="msg ${m.q}">${m.q === 'f' ? `<b>${esc(s.vida.nome)}</b>` : ''}${esc(m.x)}</div>`).join('') || `<p class="av">${T('chatVazio')}</p>`;
+  el.scrollTop = el.scrollHeight;
+}
+function abreChat() {
+  $('menu').hidden = true; $('pop').hidden = true;
+  $('chat').innerHTML = `<div class="mh"><b>${T('chatTitulo')} · ${esc(s.vida.nome)}</b><button data-a="voltar">← ${T('voltar')}</button></div><div id="chatlog"></div>` +
+    (iaAtiva ? '' : `<p class="av">${T('chatSemIa')}</p>`) +
+    `<form id="chatf"><input id="chat-in" maxlength="200" placeholder="${T('chatDigite')}" autocomplete="off"><button type="submit">${T('chatEnviar')}</button></form>`;
+  $('chat').hidden = false; atualizaLog(); $('chat-in').focus();
+}
+async function conversa(txt) {
+  chatOcupado = true;
+  const v = s.vida, hist = s.chat.slice();
+  s.chat.push({ q: 'u', x: txt }); v.traits.otimismo = Math.min(1, v.traits.otimismo + .01);
+  const m = { q: 'f', x: '…' }; s.chat.push(m); atualizaLog();
+  let r = Sim.limpa(tira(await pedeIA(Sim.promptChat(s, hist, txt), true)), 260);
+  if (r) { const k = Math.max(r.lastIndexOf('.'), r.lastIndexOf('!'), r.lastIndexOf('?')); if (k > 30 && k < r.length - 1) r = r.slice(0, k + 1); } // corta na ultima frase completa
+  else r = I18N.tr(Sim.respostaPronta(s, txt));
+  for (let i = 1; i <= r.length; i++) { // digita a resposta
+    m.x = r.slice(0, i); const el = $('chatlog')?.lastElementChild; if (el) { el.lastChild.textContent = m.x; $('chatlog').scrollTop = 1e9; }
+    if (i % 2 && r[i - 1] !== ' ') clique(300 - v.idade * 1.5);
+    await sleep(22);
+  }
+  m.x = r; if (s.chat.length > 40) s.chat.splice(0, s.chat.length - 40);
+  s.nChat = (s.nChat || 0) + 1; salvar(); atualizaLog();
+  if (s.nChat % 4 === 0) { // de tempos em tempos ele resume o que aprendeu sobre o amigo
+    const nota = Sim.limpa(tira(await pedeIA(Sim.pedidoMemoria(s), true)), 120);
+    if (nota) { s.memUsuario.push(nota); if (s.memUsuario.length > 5) s.memUsuario.shift(); salvar(); }
+  }
+  chatOcupado = false;
+}
+$('chat').onsubmit = e => { e.preventDefault(); const i = $('chat-in'), txt = i.value.trim(); if (!txt || chatOcupado) return; i.value = ''; conversa(txt); };
+$('chat').onclick = e => { if (e.target.closest('[data-a]')) $('chat').hidden = true; };
+$('z-chat').onclick = abreChat;
+
 // ---------- popup de texto (historico e diario expandido) ----------
 const abrePop = (titulo, corpo) => { $('pop').innerHTML = `<div class="mh"><b>${titulo}</b><button data-a="voltar">← ${T('voltar')}</button></div>${corpo}`; $('pop').hidden = false; $('menu').hidden = true; };
 function abreHist() {
@@ -702,7 +753,7 @@ function abreHist() {
 }
 const abreDiario = () => abrePop(T('diarioTitulo'), `<pre>${esc(textoDiario())}</pre>`);
 $('pop').onclick = e => { if (e.target.closest('[data-a]')) $('pop').hidden = true; };
-$('legenda').onclick = abreHist; $('z-h').onclick = abreHist; $('expandir').onclick = abreDiario; $('diario').onclick = abreDiario;
+$('legenda').onclick = abreHist; $('z-h').onclick = abreHist; $('z-chat').title = T('conversar'); $('expandir').onclick = abreDiario; $('diario').onclick = abreDiario;
 
 // ---------- menu de configuracoes ----------
 const onoff = b => T(b ? 'ligado' : 'desligado');
@@ -738,7 +789,7 @@ $('menu').onclick = e => {
 };
 $('menu').oninput = e => { const k = e.target.dataset.s; if (!k) return; cfg[k] = +e.target.value; salvar(); };
 $('menu').onchange = e => { const k = e.target.dataset.s; if (k === 'volFx') toca([523, 659]); else if (k === 'volTxt') for (let i = 0; i < 4; i++) setTimeout(() => clique(300), i * 90); };
-addEventListener('keydown', e => { if (e.key === 'Escape') { $('menu').hidden = true; $('pop').hidden = true; if (!$('iaw').hidden) $('iaw').hidden = true; } });
+addEventListener('keydown', e => { if (e.key === 'Escape') { $('menu').hidden = true; $('pop').hidden = true; if (!$('iaw').hidden) $('iaw').hidden = true; $('chat').hidden = true; } });
 
 // ---------- cerebro (IA): escolha do modelo conforme o PC, download com progresso ----------
 let iaInfoCache = null, iaProg = null;

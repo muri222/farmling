@@ -19,7 +19,7 @@ const I18N = (() => {
       mProf: 'Profundo', mProfD: 'Mais inteligente e criativo, mas usa mais memória e processador.',
       iaUsar: 'Usar', iaBaixar: 'Baixar e usar', iaApagar: 'Apagar', iaNao: 'Agora não (sem IA)', iaFechar: 'Fechar', iaCancelar: 'Cancelar', iaSemIa: 'Sem IA: só falas prontas.',
       iaBaixando: 'Baixando', iaErro: 'Falhou', iaTentar: 'Tente de novo', iaMudar: 'Mudar / instalar IA',
-      vozEstilo: 'Estilo da voz', histTitulo: 'HISTÓRICO', tam: 'Tamanho do jogo', tams: ['Pequeno', 'Médio', 'Grande', 'Extra grande'], expandir: 'Expandir', diarioTitulo: 'DIÁRIO', mover: 'Arraste para mover',
+      vozEstilo: 'Estilo da voz', chatTitulo: 'CONVERSA', chatDigite: 'Fale com ele…', chatEnviar: 'Enviar', chatVazio: 'Diga oi! Ele está te esperando.', chatSemIa: 'Sem IA instalada ele só responde com falas prontas. Ative o cérebro em ⚙.', conversar: 'Conversar', histTitulo: 'HISTÓRICO', tam: 'Tamanho do jogo', tams: ['Pequeno', 'Médio', 'Grande', 'Extra grande'], expandir: 'Expandir', diarioTitulo: 'DIÁRIO', mover: 'Arraste para mover',
     },
     en: {
       config: 'SETTINGS', voltar: 'Back', idioma: 'Language', canal: 'Channel', cor: 'Color', crt: 'CRT effect', mestre: 'Master volume', fx: 'Sound effects', voz: 'Text voice',
@@ -37,12 +37,13 @@ const I18N = (() => {
       mProf: 'Deep', mProfD: 'Smarter and more creative, but uses more memory and CPU.',
       iaUsar: 'Use', iaBaixar: 'Download and use', iaApagar: 'Delete', iaNao: 'Not now (no AI)', iaFechar: 'Close', iaCancelar: 'Cancel', iaSemIa: 'No AI: canned lines only.',
       iaBaixando: 'Downloading', iaErro: 'Failed', iaTentar: 'Try again', iaMudar: 'Change / install AI',
-      vozEstilo: 'Voice style', histTitulo: 'HISTORY', tam: 'Game size', tams: ['Small', 'Medium', 'Large', 'Extra large'], expandir: 'Expand', diarioTitulo: 'DIARY', mover: 'Drag to move',
+      vozEstilo: 'Voice style', chatTitulo: 'CHAT', chatDigite: 'Say something…', chatEnviar: 'Send', chatVazio: 'Say hi! He has been waiting for you.', chatSemIa: 'Without an installed AI he only answers with canned lines. Turn on the brain in ⚙.', conversar: 'Chat', histTitulo: 'HISTORY', tam: 'Game size', tams: ['Small', 'Medium', 'Large', 'Extra large'], expandir: 'Expand', diarioTitulo: 'DIARY', mover: 'Drag to move',
     },
   };
 
   // ---- traducao do texto que a simulacao gera (pt -> en) ----
   const EXATO = {
+    'Opa! Que bom te ver por aí, amigo.': 'Hey! Good to see you around, friend.', 'Boa pergunta... deixa eu pensar nisso enquanto cuido da terra.': 'Good question... let me think about it while I tend the land.',
     'Choveu a semana inteira': 'It rained all week', 'O trator quebrou': 'The tractor broke down', 'Ganhou a rifa da igreja': 'Won the church raffle',
     'Uma geada queimou parte da roça': 'A frost burned part of the farm', 'Viu uma estrela cadente': 'Saw a shooting star', 'Teve festa junina na vila': 'There was a June festival in the village',
     'O cachorro sumiu três dias e voltou': 'The dog vanished for three days and came back', 'Achou uma moeda antiga arando a terra': 'Found an old coin while plowing',
@@ -112,7 +113,8 @@ const I18N = (() => {
     [/^(.+) é gente boa\. Faz falta quando some\.$/, '$1 is good people. I miss them when they are gone.'], [/^(.+) ainda me deve uma explicação\. Mas deixa pra lá\.$/, 'Still owes me an explanation. But never mind.'],
     [/^Sabe o que foi\? (.+)\. Fiquei pensando nisso\.$/, (m, x) => `You know what it was? ${tr(x)}. Been thinking about it.`], [/^(.+) disse que eu falo sozinho\. Eu falo é com você\.$/, "$1 says I talk to myself. I'm talking to you."],
     [/^(.+) anda por aqui\. Tem história pra contar, esse (.+)\.$/, '$1 is around. Has stories to tell, that $2.'], [/^(.+)\. Cê viu isso também\?$/, (m, x) => `${tr(x)}. Did you see that too?`],
-    [/^Às vezes lembro de um tal de (.+)\. Nunca conheci\. Estranho, né\?$/, "Sometimes I remember someone called $1. Never met them. Strange, huh?"], [/^Que lugar bonito, (.+)\.$/, 'What a lovely place, $1.'],
+    [/^Às vezes lembro de um tal de (.+)\. Nunca conheci\. Estranho, né\?$/, "Sometimes I remember someone called $1. Never met them. Strange, huh?"], [/^Vou levando, (.+) hoje\. E você\?$/, (m, h) => `Getting by, feeling ${tr(h) === 'animado' ? 'cheerful' : h === 'abatido' ? 'down' : 'calm'} today. And you?`], [/^Sou (.+), tenho (\d+) anos e vivo dessa roça\.$/, "I'm $1, I'm $2 years old and I live off this farm."],
+    [/^Que lugar bonito, (.+)\.$/, 'What a lovely place, $1.'],
     [/^(.+): viveu (\d+) anos, (?:amou (.+)|nunca se apaixonou), (\d+) filho\(s\), (\d+) pedaço\(s\) de terra$/, (m, n, a, l, f, t) => `${n}: lived ${a} years, ${l ? 'loved ' + l.replace(' e ', ' and ') : 'never fell in love'}, ${f} child(ren), ${t} plot(s) of land`],
   ];
   tr = (txt, lang) => {

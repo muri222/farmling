@@ -136,18 +136,20 @@ const carrega = () => cerebro ??= (async () => {
 })().catch(e => { cerebro = null; throw e; });
 
 // A fala do fazendeiro vem daqui; null = sem IA, a tela usa as falas prontas
-ipcMain.handle('ia', async (_e, p) => {
+let filaIA = Promise.resolve(); // um pedido por vez (o contexto so tem uma sequencia)
+ipcMain.handle('ia', (_e, p) => filaIA = filaIA.then(() => gera(p), () => gera(p)));
+async function gera(p) {
   if (!conf.ia) return null;
   try {
     const { ctx, LlamaChatSession } = await carrega(), seq = ctx.getSequence();
     try {
       const ses = new LlamaChatSession({ contextSequence: seq, systemPrompt: p.sistema });
       try {
-        return await ses.prompt(p.pedido, { maxTokens: p.max || 90, temperature: 0.8, topP: 0.9, topK: 40, minP: 0.05, repeatPenalty: { penalty: 1.1 }, signal: AbortSignal.timeout(90000) });
+        return await ses.prompt(p.pedido, { maxTokens: p.max || 90, temperature: p.temp ?? 0.8, topP: 0.9, topK: 40, minP: 0.05, repeatPenalty: { penalty: 1.1 }, signal: AbortSignal.timeout(90000) });
       } finally { ses.dispose(); }
     } finally { seq.dispose(); }
   } catch (e) { console.error('ia:', e.message); return null; }
-});
+}
 
 // ---------- janela ----------
 ipcMain.handle('win:estado', () => ({ topo: conf.topo, barra: conf.barra }));

@@ -92,7 +92,7 @@ const Sim = (() => {
     s.vida.animais = 2;
   }
   function novo(seed) {
-    const s = { rng: seed | 0, ciclo: 1, ecos: [], mes: 0, proxId: 0, povo: [], q: {}, n: {}, rm: 0, sabedoria: [], evento: null, visitante: null, hist: [] };
+    const s = { rng: seed | 0, ciclo: 1, ecos: [], mes: 0, proxId: 0, povo: [], q: {}, n: {}, rm: 0, sabedoria: [], evento: null, visitante: null, hist: [], chat: [], memUsuario: [], nChat: 0 };
     for (const a of Object.keys(ACOES)) s.q[a] = 0;
     s.q.galinha = .15; s.q.ferramentas = .1;
     for (let i = 0; i < 9; i++) s.povo.push(novoNpc(s, { idade: 18 + rnd(s) * 45 }));
@@ -104,7 +104,7 @@ const Sim = (() => {
     return s;
   }
   function migra(s) { // saves antigos ganham os campos novos
-    s.mes ??= 0; s.hist ??= []; s.proxId ??= 1000; s.q ??= {}; s.n ??= {}; s.rm ??= 0; s.sabedoria ??= []; s.evento ??= null; s.visitante ??= null;
+    s.mes ??= 0; s.hist ??= []; s.chat ??= []; s.memUsuario ??= []; s.nChat ??= 0; s.proxId ??= 1000; s.q ??= {}; s.n ??= {}; s.rm ??= 0; s.sabedoria ??= []; s.evento ??= null; s.visitante ??= null;
     for (const a of Object.keys(ACOES)) s.q[a] ??= 0;
     if (!s.povo) { s.povo = []; for (let i = 0; i < 9; i++) s.povo.push(novoNpc(s, { idade: 18 + rnd(s) * 45 })); }
     const v = s.vida;
@@ -400,12 +400,36 @@ const Sim = (() => {
         (s.evento ? `Algo estranho está acontecendo: ${s.evento.txt}. ` : '') +
         (s.visitante ? `${s.visitante.nome}, ${s.visitante.papel}, está visitando você. ` : '') +
         `Acontecimentos recentes: ${v.log.slice(-5).join('; ') || 'nada ainda, acabou de começar'}. ` +
+        (s.memUsuario?.length ? `O que você já sabe sobre seu amigo (quem conversa com você): ${s.memUsuario.join(' | ')}. ` : '') +
         (s.sabedoria.length ? `Sabedoria vaga de outras vidas: ${s.sabedoria.join(' | ')}. ` : '') +
         (s.ecos.length ? `Às vezes vêm lembranças vagas, como sonhos, de vidas que não são a sua: ${s.ecos.join(' | ')}. ` : '') +
         `Regras: responda ${lt()}, com UMA fala só, no máximo 130 caracteres, primeira pessoa, jeito simples de gente do campo, ` +
         `sem aspas, sem emoji, sem explicar. Não repita: ${v.falas.join(' / ') || '-'}`,
       pedido: 'Fale sobre: ' + tema,
     };
+  }
+
+  // ---- chat: o jogador conversa com o fazendeiro ----
+  const promptChat = (s, hist, msg) => {
+    const v = s.vida, base = prompt(s).sistema.split('Regras:')[0];
+    const conversa = hist.slice(-8).map(m => `${m.q === 'u' ? 'Amigo' : v.nome}: ${m.x}`).join('\n');
+    return {
+      sistema: base + `Regras: responda ${lt()}, como ${v.nome}, em primeira pessoa, em NO MÁXIMO 2 frases curtas (até 200 caracteres), jeito simples de gente do campo, ` +
+        `sem listas, sem números, sem aspas, sem emoji, sem explicar. Responda ao que o amigo disse. Use SOMENTE os bichos, pessoas e fatos descritos acima; ` +
+        `se não souber ou não tiver algo, diga isso com naturalidade. Nunca invente bichos, pessoas ou posses.`,
+      pedido: (conversa ? `Conversa até agora:\n${conversa}\n` : '') + `Amigo: ${msg}\n${v.nome}:`, max: 80, temp: 0.55,
+    };
+  };
+  const pedidoMemoria = s => ({ sistema: SIS(), max: 50,
+    pedido: `Conversa recente entre o fazendeiro ${s.vida.nome} e seu amigo:\n${s.chat.slice(-10).map(m => `${m.q === 'u' ? 'Amigo' : s.vida.nome}: ${m.x}`).join('\n')}\n` +
+      `Escreva UMA frase curta (até 100 caracteres) sobre o que o fazendeiro aprendeu sobre o amigo (gostos, humor, assuntos). Sem aspas.` });
+  function respostaPronta(s, msg) { // sem IA: reconhece poucas coisas e senao fala uma fala pronta
+    const m = semAcento(msg).toLowerCase(), v = s.vida;
+    if (/\b(oi|ola|opa|eae|hello|hi|hey)\b/.test(m)) return `Opa! Que bom te ver por aí, amigo.`;
+    if (/(tudo bem|como vai|como voce esta|how are you)/.test(m)) return `Vou levando, ${humor(v)} hoje. E você?`;
+    if (/(quem e voce|seu nome|who are you)/.test(m)) return `Sou ${v.nome}, tenho ${Math.floor(v.idade)} anos e vivo dessa roça.`;
+    if (/\?/.test(m)) return 'Boa pergunta... deixa eu pensar nisso enquanto cuido da terra.';
+    return falaPronta(s);
   }
 
   // Fala sem IA (sem modelo)
@@ -459,7 +483,7 @@ const Sim = (() => {
   const pedidoVisitante = vis => ({ sistema: SIS() + ' Responda APENAS 2 linhas no formato "chave: valor".', max: 90,
     pedido: `Um visitante chegou na roça: ${vis.nome}, ${vis.papel}. Invente:\nsegredo: algo misterioso sobre ${vis.fem ? 'ela' : 'ele'}\nfala: a primeira coisa que diz ao fazendeiro (até 90 caracteres)` });
 
-  return { setLang: l => { LANG = l; }, lt, novo, step, migra, prompt, falaPronta, persona, familia, bichosTxt, insight, aprendizado, ocupDe, ESP, ACOES, CENAS, ESTACAO,
+  return { promptChat, pedidoMemoria, respostaPronta, setLang: l => { LANG = l; }, lt, novo, step, migra, prompt, falaPronta, persona, familia, bichosTxt, insight, aprendizado, ocupDe, ESP, ACOES, CENAS, ESTACAO,
     pedidoPerfil, pedidoLicao, pedidoEvento, pedidoVisitante, leCampos, limpa, est, vivos };
 })();
 
