@@ -53,6 +53,8 @@ const Sim = (() => {
 
   let LANG = 'pt';
   const lt = () => LANG === 'en' ? 'in English' : 'em português do Brasil'; // idioma pedido a IA
+  // o prompt e em portugues: em ingles a ordem vai no comeco E no fim, senao a IA responde em portugues
+  const dir = () => LANG === 'en' ? 'IMPORTANT: Reply ONLY in English, never in Portuguese. ' : '';
   const rnd = s => { // mulberry32 com o estado guardado no save
     s.rng = (s.rng + 0x6D2B79F5) | 0;
     let t = s.rng;
@@ -394,8 +396,59 @@ const Sim = (() => {
   const rivaisTxt = (s, v) => vivos(s).filter(p => v.rel[p.id]?.rival).map(p => `${p.nome} (por causa de ${v.rel[p.id].motivo})`).join(', ') || 'ninguém';
   const humor = v => v.traits.otimismo > .6 ? 'animado' : v.traits.otimismo < .35 ? 'abatido' : 'tranquilo';
 
+  // ---------------- prompts em ingles (o prompt em portugues puxa a IA pra responder em portugues) ----------------
+  let TR = x => x; // traducao dos textos da simulacao (I18N.tr, injetada pelo jogo)
+  const ACOES_EN = { ferramentas: 'investing in tools', galinha: 'raising hens', pato: 'raising ducks', porco: 'raising pigs', cabra: 'raising goats', ovelha: 'raising sheep', vaca: 'raising cows',
+    cavalo: 'owning a horse', terra: 'buying more land', socializar: 'mixing with the village', poupar: 'saving money' };
+  const insightEN = s => { const l = aprendizado(s); return l.length ? `${ACOES_EN[l[0]]} usually pays off` + (l.length > 2 ? `, and ${ACOES_EN[l[l.length - 1]]} almost never does` : '') : 'still figuring out what works'; };
+  const humorEN = v => v.traits.otimismo > .6 ? 'cheerful' : v.traits.otimismo < .35 ? 'down' : 'calm';
+  function ctxEN(s) { // fatos da vida dele em ingles
+    const v = s.vida, P = v.perfil || {}, nomeados = TR(v.bichos.filter(b => b.nome).slice(0, 6).map(b => `${b.nome} (${ESP[b.e].n})`).join(', '));
+    const fam = (v.par ? `${v.par.casados ? 'married to' : 'dating'} ${v.par.nome}` : 'single, still looking for someone to start a family') +
+      (v.filhos.length ? `; children: ${v.filhos.map(f => `${f.nome} (${Math.floor(f.idade)})`).join(', ')}` : '; no children yet, but dreams of having some');
+    const amigos = gentes(s, v, r => r.amigo).join(', ') || 'none yet', rivais = vivos(s).filter(p => v.rel[p.id]?.rival).map(p => `${p.nome} (${TR(v.rel[p.id].motivo)})`).join(', ') || 'nobody';
+    const recentes = v.log.slice(-3).map(l => TR(l.replace(/^\d+ anos: /, ''))).join('; ') || 'nothing';
+    return {
+      persona: TR(persona(v)), perfil: P.sonho ? `Your dream: ${TR(P.sonho)}. Your fear: ${TR(P.medo)}. Your quirk: you ${TR(P.mania)}. Your past: you ${TR(P.passado)}. ` : '',
+      fatos: `season: ${TR(ESTACAO[est(s)])}; $${Math.floor(v.dinheiro)}; ${v.terra} plot(s) of land; animals: ${TR(bichosTxt(v))}${nomeados ? ` (named: ${nomeados})` : ''}; family: ${fam}; friends: ${amigos}; rivals: ${rivais}; ` +
+        (s.evento ? `happening now: ${TR(s.evento.txt)}; ` : '') + (s.visitante ? `visitor: ${s.visitante.nome}, ${TR(s.visitante.papel)}; ` : '') +
+        `recent events: ${recentes}; mood: ${humorEN(v)}; learned: ${insightEN(s)}` + (s.memUsuario?.length ? `; about the friend: ${s.memUsuario.join(' | ')}` : ''),
+    };
+  }
+  function promptEN(s) {
+    const v = s.vida, c = ctxEN(s), tema = pick({ rng: (Math.random() * 2 ** 32) | 0 }, ['something that happened today on the farm', 'a philosophy of life you have been thinking about', 'a memory from your life',
+      'your family or the lack of one', 'a curious question for your friend', 'a strange dream that felt like another life', 'the animals or the land', 'a fear or a wish of yours', 'someone in the village', 'something you learned the hard way', 'the season']);
+    return {
+      sistema: `IMPORTANT: Reply ONLY in English. You are ${v.nome}, a ${Math.floor(v.idade)}-year-old farmer who lives inside a little screen. You talk to a friend who watches you from the other side. ` +
+        `Your nature: ${c.persona}. ${c.perfil}Facts about your life: ${c.fatos}. ` + (s.sabedoria.length ? `Vague wisdom from other lives: ${s.sabedoria.join(' | ')}. ` : '') +
+        `Rules: reply with ONE line only, at most 130 characters, first person, simple country-folk voice, no quotes, no emoji, no explanations. Do not repeat: ${v.falas.join(' / ') || '-'}. Reply ONLY in English.`,
+      pedido: 'Talk about: ' + tema,
+    };
+  }
+  const promptChatEN = (s, msg, hist) => {
+    const v = s.vida, c = ctxEN(s), anterior = hist?.length ? `[Previous conversation: ${hist.slice(-6).map(m => `${m.q === 'u' ? 'Friend' : v.nome}: ${m.x}`).join(' / ')}]\n` : '';
+    const sistema = `IMPORTANT: Reply ONLY in English. You are ${v.nome}, a ${Math.floor(v.idade)}-year-old farmer. You live inside a little computer screen and talk with a friend who watches the screen ` +
+      `(you do not know their name: call them "friend"; never call them by your own name). Your nature: ${c.persona}. ${c.perfil}` +
+      `Talk like a real person: direct, warm and funny, in 1 to 3 short sentences. First ANSWER what the friend said or asked (if they ask about you, really answer); only then, if you like, add something from your life or ask something back. ` +
+      `Use concrete facts from the [Current situation] line (animals by name, people in the village). Never invent animals, people or belongings. No lists, no quotes, no emoji. ` +
+      `You may fall in love, marry and have children someday; if you are alone, say you are still looking for someone. Reply ONLY in English.`;
+    return { sid: `${v.nome}|${s.ciclo}|en|${(v.perfil || {}).sonho || ''}`, sistema, situacao: `[Current situation: ${c.fatos}]`, anterior, fala: msg, max: 90, temp: 0.6 };
+  };
+  const SIS_EN = 'IMPORTANT: Reply ONLY in English. You help create stories for a farm game. Short phrases, no explanations. ';
+  const pedidoPerfilEN = v => ({ sistema: SIS_EN + 'Reply with ONLY 4 lines in "key: value" format, using exactly the keys sonho, medo, mania, passado, with the values written in English. Reply ONLY in English.', max: 120,
+    pedido: `Character: ${v.nome}, a ${Math.floor(v.idade)}-year-old farmer, nature: ${TR(persona(v))}. Invent (max 60 characters each, in English):\nsonho: what he wants most\nmedo: what scares him\nmania: a weird habit (start with a verb like "talks to...")\npassado: a curious fact from his youth` });
+  const pedidoLicaoEN = (s, v) => ({ sistema: SIS_EN + 'Reply ONLY in English.', max: 50,
+    pedido: `Recent events of ${v.nome}: ${v.log.slice(-6).map(l => TR(l)).join('; ')}. He is ${insightEN(s)}. Write ONE life lesson he took from this, first person, max 90 characters, no quotes, in English.` });
+  const pedidoEventoEN = (s, cena) => ({ sistema: SIS_EN + 'Reply ONLY in English.', max: 50,
+    pedido: `Something of the kind "${cena}" happened on the farm. Describe in ONE short, creative sentence (max 100 characters, third person, in English) what ${s.vida.nome} saw.` });
+  const pedidoVisitanteEN = vis => ({ sistema: SIS_EN + 'Reply with ONLY 2 lines in "key: value" format, using exactly the keys segredo and fala, with the values written in English. Reply ONLY in English.', max: 90,
+    pedido: `A visitor arrived at the farm: ${vis.nome}, ${TR(vis.papel)}. Invent:\nsegredo: something mysterious about ${vis.fem ? 'her' : 'him'}\nfala: the first thing ${vis.fem ? 'she' : 'he'} says to the farmer (max 90 characters, in English)` });
+  const pedidoMemoriaEN = s => ({ sistema: SIS_EN + 'Reply ONLY in English.', max: 50,
+    pedido: `Recent chat between the farmer ${s.vida.nome} and his friend:\n${s.chat.slice(-10).map(m => `${m.q === 'u' ? 'Friend' : s.vida.nome}: ${m.x}`).join('\n')}\nWrite ONE short sentence (max 100 characters, in English) about what the farmer learned about the friend (tastes, mood, topics). No quotes.` });
+
   // Prompt pra mini IA local: persona + memoria + relacoes + o que aprendeu + resquicios das vidas passadas
   function prompt(s) {
+    if (LANG === 'en') return promptEN(s);
     const v = s.vida, P = v.perfil || {};
     const tema = pick({ rng: (Math.random() * 2 ** 32) | 0 }, [
       'algo que aconteceu hoje na roça', 'uma filosofia de vida que você andou pensando',
@@ -403,7 +456,7 @@ const Sim = (() => {
       'um sonho estranho que parecia outra vida', 'os bichos ou a terra', 'um medo ou um desejo seu',
       'alguém da vila', 'algo que você aprendeu na prática', 'a estação do ano']);
     return {
-      sistema: `Você é ${v.nome}, fazendeiro de ${Math.floor(v.idade)} anos que vive dentro de uma telinha. ` +
+      sistema: dir() + `Você é ${v.nome}, fazendeiro de ${Math.floor(v.idade)} anos que vive dentro de uma telinha. ` +
         `Você fala com um amigo que te observa do outro lado da tela; o destino juntou vocês. ` +
         `Seu jeito: ${persona(v)}; hoje está ${humor(v)}. ` + (P.sonho ? `Seu sonho: ${P.sonho}. Seu medo: ${P.medo}. Sua mania: ${P.mania}. Seu passado: ${P.passado}. ` : '') +
         `Vida: $${Math.floor(v.dinheiro)}, ${v.terra} pedaço(s) de terra, bichos: ${bichosTxt(v)}, ${familiaIA(v)}. ` +
@@ -416,7 +469,7 @@ const Sim = (() => {
         (s.sabedoria.length ? `Sabedoria vaga de outras vidas: ${s.sabedoria.join(' | ')}. ` : '') +
         (s.ecos.length ? `Às vezes vêm lembranças vagas, como sonhos, de vidas que não são a sua: ${s.ecos.join(' | ')}. ` : '') +
         `Regras: responda ${lt()}, com UMA fala só, no máximo 130 caracteres, primeira pessoa, jeito simples de gente do campo, ` +
-        `sem aspas, sem emoji, sem explicar. Não repita: ${v.falas.join(' / ') || '-'}`,
+        `sem aspas, sem emoji, sem explicar. Não repita: ${v.falas.join(' / ') || '-'}` + dir(),
       pedido: 'Fale sobre: ' + tema,
     };
   }
@@ -424,6 +477,7 @@ const Sim = (() => {
   // ---- chat: o jogador conversa com o fazendeiro ----
   // O sistema (personalidade e jeito de conversar) e fixo e fica em cache na IA; a [Situação agora] muda e vai junto da mensagem.
   const promptChat = (s, msg, hist) => {
+    if (LANG === 'en') return promptChatEN(s, msg, hist);
     const v = s.vida, P = v.perfil || {};
     const nomeados = v.bichos.filter(b => b.nome).slice(0, 6).map(b => `${b.nome} (${ESP[b.e].n})`).join(', ');
     const situacao = `[Situação agora: ${ESTACAO[est(s)]}; $${Math.floor(v.dinheiro)}; ${v.terra} pedaço(s) de terra; bichos: ${bichosTxt(v)}${nomeados ? ` (com nome: ${nomeados})` : ''}; ` +
@@ -431,15 +485,15 @@ const Sim = (() => {
       (s.visitante ? `visita: ${s.visitante.nome}, ${s.visitante.papel}; ` : '') + `recentes: ${v.log.slice(-3).map(l => l.replace(/^\d+ anos: /, '')).join('; ') || 'nada'}; ` +
       `humor: ${humor(v)}; aprendeu: ${insight(s)}` + (s.memUsuario?.length ? `; sobre o amigo: ${s.memUsuario.join(' | ')}` : '') + ']';
     const anterior = hist?.length ? `[Conversa anterior: ${hist.slice(-6).map(m => `${m.q === 'u' ? 'Amigo' : v.nome}: ${m.x}`).join(' / ')}]\n` : '';
-    const sistema = `Você é ${v.nome}, fazendeiro de ${Math.floor(v.idade)} anos. Você mora dentro de uma telinha de computador e conversa com um amigo que olha pra tela ` +
+    const sistema = dir() + `Você é ${v.nome}, fazendeiro de ${Math.floor(v.idade)} anos. Você mora dentro de uma telinha de computador e conversa com um amigo que olha pra tela ` +
       `(você não sabe o nome dele: chame de "amigo"; nunca o chame pelo seu próprio nome). Seu jeito: ${persona(v)}. ` + (P.sonho ? `Seu sonho: ${P.sonho}. Seu medo: ${P.medo}. Sua mania: ${P.mania}. Seu passado: ${P.passado}. ` : '') +
       `Fale como gente de verdade: direto, caloroso e com humor, em 1 a 3 frases curtas. Primeiro RESPONDA ao que o amigo disse ou perguntou (se ele perguntou sobre você, responda de verdade); ` +
       `só depois, se quiser, acrescente algo da sua vida ou devolva uma pergunta. Use fatos concretos da linha [Situação agora] (bichos pelo nome, gente da vila). ` +
       `Nunca invente bichos, pessoas ou posses. Sem listas, sem aspas, sem emoji. Responda ${lt()}. ` +
-      `Você pode se apaixonar, casar e ter filhos um dia; se estiver sozinho, diga que ainda procura alguém.`;
+      `Você pode se apaixonar, casar e ter filhos um dia; se estiver sozinho, diga que ainda procura alguém.` + dir();
     return { sid: `${v.nome}|${s.ciclo}|${LANG}|${P.sonho || ''}`, sistema, situacao, anterior, fala: msg, max: 90, temp: 0.6 };
   };
-  const pedidoMemoria = s => ({ sistema: SIS(), max: 50,
+  const pedidoMemoria = s => LANG === 'en' ? pedidoMemoriaEN(s) : ({ sistema: SIS(), max: 50,
     pedido: `Conversa recente entre o fazendeiro ${s.vida.nome} e seu amigo:\n${s.chat.slice(-10).map(m => `${m.q === 'u' ? 'Amigo' : s.vida.nome}: ${m.x}`).join('\n')}\n` +
       `Escreva UMA frase curta (até 100 caracteres) sobre o que o fazendeiro aprendeu sobre o amigo (gostos, humor, assuntos). Sem aspas.` });
   function respostaPronta(s, msg) { // sem IA: reconhece poucas coisas e senao fala uma fala pronta
@@ -492,17 +546,17 @@ const Sim = (() => {
     }
     return o;
   }
-  const SIS = () => 'Você ajuda a criar histórias para um jogo de fazenda. Responda ' + lt() + ', frases curtas, sem explicações.';
-  const pedidoPerfil = v => ({ sistema: SIS() + ' Responda APENAS 4 linhas no formato "chave: valor".', max: 120,
+  const SIS = () => dir() + 'Você ajuda a criar histórias para um jogo de fazenda. Responda ' + lt() + ', frases curtas, sem explicações.' + dir();
+  const pedidoPerfil = v => LANG === 'en' ? pedidoPerfilEN(v) : ({ sistema: SIS() + ' Responda APENAS 4 linhas no formato "chave: valor".', max: 120,
     pedido: `Personagem: ${v.nome}, fazendeiro de ${Math.floor(v.idade)} anos, jeito ${persona(v)}. Invente (até 60 caracteres cada):\nsonho: o que ele mais deseja\nmedo: o que o assusta\nmania: um hábito esquisito\npassado: um fato curioso da juventude` });
-  const pedidoLicao = (s, v) => ({ sistema: SIS(), max: 50,
+  const pedidoLicao = (s, v) => LANG === 'en' ? pedidoLicaoEN(s, v) : ({ sistema: SIS(), max: 50,
     pedido: `Acontecimentos recentes de ${v.nome}: ${v.log.slice(-6).join('; ')}. Ele ${insight(s)}. Escreva UMA lição de vida que ele tirou disso, em primeira pessoa, até 90 caracteres, sem aspas.` });
-  const pedidoEvento = (s, cena) => ({ sistema: SIS(), max: 50,
+  const pedidoEvento = (s, cena) => LANG === 'en' ? pedidoEventoEN(s, cena) : ({ sistema: SIS(), max: 50,
     pedido: `Na roça aconteceu algo do tipo "${cena}". Descreva em UMA frase curta e criativa (até 100 caracteres), na terceira pessoa, o que ${s.vida.nome} viu.` });
-  const pedidoVisitante = vis => ({ sistema: SIS() + ' Responda APENAS 2 linhas no formato "chave: valor".', max: 90,
+  const pedidoVisitante = vis => LANG === 'en' ? pedidoVisitanteEN(vis) : ({ sistema: SIS() + ' Responda APENAS 2 linhas no formato "chave: valor".', max: 90,
     pedido: `Um visitante chegou na roça: ${vis.nome}, ${vis.papel}. Invente:\nsegredo: algo misterioso sobre ${vis.fem ? 'ela' : 'ele'}\nfala: a primeira coisa que diz ao fazendeiro (até 90 caracteres)` });
 
-  return { promptChat, pedidoMemoria, respostaPronta, setLang: l => { LANG = l; }, lt, novo, step, migra, prompt, falaPronta, persona, familia, bichosTxt, insight, aprendizado, ocupDe, ESP, ACOES, CENAS, ESTACAO,
+  return { setTr: f => { TR = f; }, dir, promptChat, pedidoMemoria, respostaPronta, setLang: l => { LANG = l; }, lt, novo, step, migra, prompt, falaPronta, persona, familia, bichosTxt, insight, aprendizado, ocupDe, ESP, ACOES, CENAS, ESTACAO,
     pedidoPerfil, pedidoLicao, pedidoEvento, pedidoVisitante, leCampos, limpa, est, vivos };
 })();
 

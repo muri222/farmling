@@ -127,7 +127,7 @@ Sim.migra(s);
 const VELS = [0, 1, 3, 10, 30]; // velocidades do tempo (0 = pausa)
 if (!VELS.includes(cfg.vel)) cfg.vel = 1;
 if (!I18N.UI[cfg.lang]) cfg.lang = 'pt';
-I18N.set(cfg.lang); Sim.setLang(cfg.lang);
+I18N.set(cfg.lang); Sim.setLang(cfg.lang); Sim.setTr(I18N.tr);
 const T = I18N.t, esc = x => String(x).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 let tv = Date.now(), acc = 0, ultR = performance.now(); // tv = relogio do mundo (anda mais rapido ou mais devagar que o real)
 // a vida continuou enquanto o app estava fechado (no maximo 600 meses por vez)
@@ -209,7 +209,7 @@ async function pensar() {
   let quem = v.nome, txt;
   if (vis && Math.random() < .3) { // o visitante tambem fala
     quem = vis.nome;
-    txt = Sim.limpa(tira(await pedeIA({ max: 60, sistema: `Você é ${vis.nome}, ${vis.papel}, visitando a roça de ${v.nome}. ${vis.segredo ? 'Seu segredo: ' + vis.segredo + '. ' : ''}Responda ${Sim.lt()} com UMA fala curta (até 120 caracteres), sem aspas, sem emoji.`, pedido: 'Diga algo ao fazendeiro.' })), 160) || vis.fala || `Que lugar bonito, ${v.nome}.`;
+    txt = Sim.limpa(tira(await pedeIA({ max: 60, sistema: `${Sim.dir()}Você é ${vis.nome}, ${vis.papel}, visitando a roça de ${v.nome}. ${vis.segredo ? 'Seu segredo: ' + vis.segredo + '. ' : ''}Responda ${Sim.lt()} com UMA fala curta (até 120 caracteres), sem aspas, sem emoji.`, pedido: 'Diga algo ao fazendeiro.' })), 160) || vis.fala || `Que lugar bonito, ${v.nome}.`;
   } else {
     txt = Sim.limpa(tira(await pedeIA(Sim.prompt(s))), 160) || Sim.falaPronta(s);
     if (v === s.vida) { v.falas.push(txt); if (v.falas.length > 3) v.falas.shift(); }

@@ -72,7 +72,7 @@ const I18N = (() => {
     'conta as estrelas': 'counts the stars', 'cheira a terra antes de plantar': 'smells the soil before planting', 'já foi marinheiro por um verão': 'was a sailor for one summer', 'perdeu uma aposta e ganhou uma vaca': 'lost a bet and won a cow',
     'viu o pai plantar a primeira muda': 'watched his father plant the first seedling', 'fugiu de casa aos dez anos e voltou no dia seguinte': 'ran away from home at ten and came back the next day',
     'aprendeu a ler sozinho': 'taught himself to read', 'foi salvo de um rio por um cachorro': 'was saved from a river by a dog',
-    'ainda está descobrindo o que funciona': 'still figuring out what works',
+    'ainda está descobrindo o que funciona': 'still figuring out what works', 'nenhum ainda': 'none yet', 'ninguém': 'nobody', 'nada': 'nothing',
   };
   const FRASES = [ // trechos soltos
     ['a cerca da divisa', 'the boundary fence'], ['as galinhas que invadiram a horta', 'the hens that invaded the garden'], ['um empréstimo não pago', 'an unpaid loan'], ['uma fofoca sobre a colheita', 'gossip about the harvest'],
