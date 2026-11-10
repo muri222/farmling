@@ -18,6 +18,14 @@ Um fazendeiro de pixel art que vive numa telinha no canto do seu computador. Ele
 | <img src="docs/screenshots/06-roca-fosforo-verde.png" width="300"><br>Modo **fósforo verde** | <img src="docs/screenshots/07-roca-ambar.png" width="300"><br>Modo **âmbar** |
 | <img src="docs/screenshots/11-cerebro-ia.png" width="300"><br>**Escolha do "cérebro" de IA** conforme o seu PC | <img src="docs/screenshots/10-configuracoes.png" width="300"><br>**Configurações** (idioma, tamanho, sons, bandeja…) |
 
+## Vídeo explicativo / Explainer video
+
+Clique na imagem para assistir (60 s, ~2,5 MB cada). / Click the image to watch (60 s, ~2.5 MB each).
+
+| Português | English |
+|---|---|
+| [![Vídeo explicativo em português](docs/videos/farmling-explicativo-pt.jpg)](docs/videos/farmling-explicativo-pt.mp4) | [![Explainer video in English](docs/videos/farmling-explainer-en.jpg)](docs/videos/farmling-explainer-en.mp4) |
+
 ## Instalar (Windows)
 
 Baixe `Farmling-Setup-x.y.z.exe` na página de Releases e execute. Na primeira abertura o jogo analisa o seu PC e oferece três "cérebros" de IA para baixar:
