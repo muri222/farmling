@@ -1,0 +1,71 @@
+{
+  "name": "vidinha",
+  "version": "1.0.0",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node sim.js",
+    "dist": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "45.2.3",
+    "electron-builder": "^26.18.0"
+  },
+  "dependencies": {
+    "node-llama-cpp": "^3.22.3"
+  },
+  "description": "Vidinha: um fazendeiro de pixel art que vive na tela do seu computador, com uma IA local que cria a história dele.",
+  "author": "muri222",
+  "build": {
+    "appId": "com.murillo.vidinha",
+    "productName": "Vidinha",
+    "copyright": "Vidinha",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "sim.js",
+      "i18n.js",
+      "arte/sprites.js",
+      "assets/**",
+      "package.json",
+      "node_modules/**/*",
+      "!node_modules/@node-llama-cpp/win-arm64/**",
+      "!node_modules/@node-llama-cpp/win-x64-cuda/**",
+      "!node_modules/@node-llama-cpp/win-x64-cuda-ext/**",
+      "!node_modules/@node-llama-cpp/win-x64-vulkan/**",
+      "!**/*.gguf"
+    ],
+    "asarUnpack": [
+      "node_modules/@node-llama-cpp/win-x64/**",
+      "node_modules/node-llama-cpp/**"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icone.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Vidinha",
+      "language": "1046",
+      "installerIcon": "assets/icone.ico",
+      "uninstallerIcon": "assets/icone.ico",
+      "artifactName": "Vidinha-Setup-${version}.exe"
+    }
+  }
+}

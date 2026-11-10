@@ -1,0 +1,11 @@
+<!doctype html><meta charset="utf-8"><style>html,body{margin:0;overflow:hidden;background:transparent}canvas{display:block}</style><canvas id="c" width="256" height="256"></canvas>
+<script src="sprites.js"></script>
+<script>
+const c = document.getElementById('c'), g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+// fundo: ceu e grama, cantos arredondados
+g.beginPath(); g.roundRect(0, 0, 256, 256, 52); g.clip();
+g.fillStyle = '#8fcaf4'; g.fillRect(0, 0, 256, 150); g.fillStyle = '#aedaf8'; g.fillRect(0, 100, 256, 50);
+g.fillStyle = '#ffe04a'; g.beginPath(); g.arc(205, 52, 22, 0, 7); g.fill();
+g.fillStyle = '#5aa832'; g.fillRect(0, 170, 256, 86); g.fillStyle = '#7bc84a'; g.fillRect(0, 170, 256, 8);
+const f = Arte.fazendeiro(0); g.drawImage(f, 128 - f.width * 4.4, 245 - f.height * 8.8, f.width * 8.8, f.height * 8.8);
+</script>

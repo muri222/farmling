@@ -1,0 +1,27 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Vidinha - niveis de bits</title>
+<style>body { margin: 0; background: #1b1d1a; } canvas { display: block; }</style>
+<canvas id="f" width="1200" height="560"></canvas>
+<script src="sprites.js"></script>
+<script src="niveis.js"></script>
+<script>
+const cv = document.getElementById('f'), x = cv.getContext('2d');
+x.fillStyle = '#242722'; x.fillRect(0, 0, 1200, 560);
+const nome = (t, px, py) => { x.fillStyle = '#b4c0a0'; x.font = 'bold 13px Consolas'; x.fillText(t, px, py); };
+const info = { 8: '8 bits - meia resolucao, 16 cores NES', 16: '16 bits - estilo atual', 32: '32 bits - 2x, luz e sombra suaves', 64: '64 bits - 4x, luz forte e textura' };
+[8, 16, 32, 64].forEach((nv, i) => {
+  const ox = 10 + i * 297;
+  nome(info[nv], ox, 20);
+  const c = Niveis.cena(nv);
+  x.imageSmoothingEnabled = nv >= 32; x.imageSmoothingQuality = 'high';
+  x.drawImage(c, ox, 30, 288, 216);
+  // detalhe do fazendeiro e da galinha
+  x.fillStyle = '#1b1d1a'; x.fillRect(ox, 262, 288, 288);
+  const f = Niveis.prep(nv, 'f0'), g = Niveis.prep(nv, 'g0');
+  x.imageSmoothingEnabled = nv >= 32;
+  const hf = 210, wf = f.width * hf / f.height; x.drawImage(f, ox + 8, 270, wf, hf);
+  const hg = hf * g.height / f.height * 1.15, wg = g.width * hg / g.height; x.drawImage(g, ox + 20 + wf, 270 + hf - hg, wg, hg);
+  nome(f.width + 'x' + f.height + ' px o fazendeiro', ox + 4, 546);
+});
+</script>

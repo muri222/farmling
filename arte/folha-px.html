@@ -1,0 +1,31 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Vidinha - pixel art por nivel</title>
+<style>body { margin: 0; background: #1b1d1a; } canvas { display: block; }</style>
+<canvas id="f" width="1200" height="560"></canvas>
+<script src="sprites.js"></script>
+<script src="px.js"></script>
+<script>
+const cv = document.getElementById('f'), x = cv.getContext('2d');
+x.fillStyle = '#242722'; x.fillRect(0, 0, 1200, 560);
+x.imageSmoothingEnabled = false; // so vizinho mais proximo: cada pixel aparece inteiro
+const nome = (t, px, py) => { x.fillStyle = '#b4c0a0'; x.font = 'bold 13px Consolas'; x.fillText(t, px, py); };
+const niveis = [
+  { t: '8 bits - hand-drawn, 12x17, poucas cores', f: Px.fazendeiro8(), g: Px.galinha8(), z: 13 },
+  { t: '16 bits - 16x24, 3 tons por material', f: Arte.fazendeiro(0), g: Arte.galinha(false), z: 8 },
+  { t: '32 bits - 32x48, sombreado em faixas, olhos', f: Px.fazendeiro(2), g: Px.galinha(2), z: 4 },
+  { t: '64 bits - 64x96, tramado, textura, detalhes', f: Px.fazendeiro(4), g: Px.galinha(4), z: 2 }];
+niveis.forEach((n, i) => {
+  const ox = 10 + i * 297;
+  nome(n.t, ox, 20);
+  x.fillStyle = '#1b1d1a'; x.fillRect(ox, 30, 288, 480);
+  const fw = n.f.width * n.z, fh = n.f.height * n.z;
+  x.drawImage(n.f, ox + 4, 40, fw, fh);
+  // galinha na mesma escala (mesmo zoom do fazendeiro)
+  x.drawImage(n.g, ox + 8 + fw, 40 + fh - n.g.height * n.z, n.g.width * n.z, n.g.height * n.z);
+  // tamanho real (1:1 e 2:1)
+  x.drawImage(n.f, ox + 8, 440 - n.f.height - 4, n.f.width, n.f.height);
+  x.drawImage(n.f, ox + 8 + n.f.width + 12, 440 - n.f.height * 2 - 4, n.f.width * 2, n.f.height * 2);
+  nome(`${n.f.width}x${n.f.height}px  (1:1 e 2:1 embaixo)`, ox + 4, 530);
+});
+</script>

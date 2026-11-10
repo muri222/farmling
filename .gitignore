@@ -1,0 +1,11 @@
+# dependencias e build (regeneraveis)
+node_modules/
+dist/
+# modelos de IA: sao baixados pelo proprio jogo, nunca vao pro git
+*.gguf
+*.part
+# referencias de arte e capturas de teste
+refs/
+arte/*.png
+_t.mjs
+*.log

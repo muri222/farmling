@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="pt-BR">
+<meta charset="utf-8">
+<title>Vidinha</title>
+<style>
+  * { box-sizing: border-box; margin: 0; user-select: none; }
+  body { background: transparent; overflow: hidden; font: 10px/12px Consolas, monospace; }
+  /* sem carcaca: so a tela arredondada, com barra de status no topo */
+  #tv { width: 300px; height: 372px; padding: 6px; position: relative; }
+  #tv { --fg: #6f6; --bg: #000; }
+  #tela { position: relative; width: 288px; height: 216px; background: var(--bg); overflow: hidden;
+    border-radius: 26px / 22px; box-shadow: 0 0 0 3px #0c0d0a, 0 4px 14px rgba(0,0,0,.5); cursor: pointer; }
+  #tv[data-cor=verde] { --fg: #b4f05a; --bg: #06100a; }
+  #tv[data-cor=ambar] { --fg: #ffc24a; --bg: #120900; }
+  #tv[data-cor=original] { --fg: #fff1c9; --bg: #2a1a10; }
+  #img { position: absolute; inset: 0; }
+  canvas { width: 100%; height: 100%; image-rendering: pixelated; display: block; }
+  #tela.crt { border-radius: 42px / 36px; }
+  #tela.crt canvas { filter: contrast(1.18) saturate(1.25) brightness(1.08) blur(.55px) drop-shadow(0 0 4px var(--fg)); }
+  #tela.crt #img::before { content: ''; position: absolute; inset: 0; pointer-events: none; animation: flick .09s infinite alternate;
+    background: linear-gradient(135deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,0) 26%),
+      repeating-linear-gradient(90deg, rgba(255,0,0,.08) 0 1px, rgba(0,255,0,.08) 1px 2px, rgba(0,0,255,.08) 2px 3px),
+      radial-gradient(ellipse at center, transparent 42%, rgba(0,0,0,.88) 100%);
+    box-shadow: inset 0 0 36px 10px rgba(0,0,0,.92); }
+  @keyframes flick { from { opacity: .8 } to { opacity: 1 } }
+  #osd { position: absolute; top: 12px; right: 44px; color: var(--fg); font-weight: bold; text-shadow: 0 0 4px var(--fg); }
+  #diario { position: absolute; inset: 14px 20px 14px; color: var(--fg); font-size: 9px; line-height: 11px; white-space: pre-wrap; overflow: hidden; }
+  #eng { position: absolute; top: 8px; right: 10px; z-index: 2; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 12px; background: rgba(0,0,0,.62);
+    color: var(--fg); font-size: 16px; line-height: 24px; cursor: pointer; }
+  #eng:hover, #eng:focus-visible { background: var(--fg); color: var(--bg); outline: none; }
+  #hud { margin-top: 6px; padding: 4px 10px; height: 52px; border-radius: 10px; background: rgba(8,10,8,.94); color: var(--fg); font: bold 11px/14px Consolas, monospace;
+    box-shadow: inset 0 0 0 2px var(--fg), 0 2px 8px rgba(0,0,0,.5); white-space: nowrap; overflow: hidden; }
+  #hud b { color: #fff; } #hud i { font-style: normal; opacity: .55; }
+  #legenda { margin-top: 6px; height: 50px; padding: 6px 10px; overflow: hidden; border-radius: 10px; color: var(--fg); font-weight: bold;
+    font-size: 11px; line-height: 14px; background: rgba(8,10,8,.92); box-shadow: inset 0 0 0 2px var(--fg), 0 2px 8px rgba(0,0,0,.5); }
+  #legenda.narr { font-style: italic; opacity: .85; }
+  #ctl { margin-top: 6px; height: 24px; display: flex; align-items: center; justify-content: center; gap: 3px; border-radius: 12px;
+    background: rgba(18,20,16,.94); color: #cfd6c0; font-weight: bold; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
+  #ctl button { height: 18px; min-width: 18px; padding: 0 5px; border: 0; border-radius: 9px; background: #343a2e; color: inherit; font: inherit; cursor: pointer; }
+  #ctl button:hover { background: #4d5642; }
+  #ctl button.on { background: #b4f05a; color: #101808; }
+  #ctl span { min-width: 38px; text-align: center; }
+  #ctl i { width: 1px; height: 12px; background: #4a5040; margin: 0 3px; }
+  #tela { cursor: pointer; }
+  #zoom { position: absolute; left: 10px; bottom: 9px; display: flex; gap: 3px; z-index: 1; }
+  #zoom button { width: 20px; height: 18px; padding: 0; border: 0; border-radius: 9px; background: rgba(0,0,0,.6); color: var(--fg); font: bold 12px/18px Consolas, monospace; cursor: pointer; }
+  #vel { position: absolute; right: 10px; bottom: 9px; display: flex; gap: 3px; z-index: 1; }
+  #vel button { height: 18px; padding: 0 5px; border: 0; border-radius: 9px; background: rgba(0,0,0,.6); color: var(--fg); font: bold 11px/18px Consolas, monospace; cursor: pointer; }
+  #vel button:hover { background: var(--fg); color: var(--bg); }
+  #vel button.on { background: var(--fg); color: var(--bg); }
+  #zoom button.on { background: var(--fg); color: var(--bg); }
+  #zoom button:hover { background: var(--fg); color: var(--bg); }
+  #fechar, #expandir { position: absolute; top: 8px; z-index: 2; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 12px; background: rgba(0,0,0,.62); color: var(--fg); font: bold 13px/24px Consolas, monospace; cursor: pointer; }
+  #fechar { right: 38px; } #expandir { left: 10px; }
+  #fechar:hover, #expandir:hover { background: var(--fg); color: var(--bg); }
+  #diario { pointer-events: auto; cursor: pointer; } #legenda { cursor: pointer; } #tv.arrasta * { cursor: grabbing !important; }
+  [hidden] { display: none !important; }
+  #menu, #pop, #iaw { scrollbar-width: thin; scrollbar-color: var(--fg) transparent; }
+  #menu, #pop, #iaw { position: absolute; inset: 6px; z-index: 6; overflow-y: auto; padding: 8px 10px; border-radius: 18px; background: rgba(8,10,8,.98); color: var(--fg);
+    box-shadow: inset 0 0 0 2px var(--fg); font: bold 11px/14px Consolas, monospace; }
+  #menu button, #pop button, #iaw button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  .mh { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; letter-spacing: 1px; }
+  .mh button { padding: 3px 8px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--fg); }
+  .row { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 2px 6px; min-height: 21px; border-radius: 6px; text-align: left; }
+  .row:hover, .mh button:hover, .mf button:hover { background: var(--fg); color: var(--bg); }
+  .sl input { width: 110px; accent-color: var(--fg); }
+  .mf { display: flex; gap: 8px; margin-top: 6px; } .mf button { flex: 1; padding: 5px; border-radius: 8px; box-shadow: inset 0 0 0 1px var(--fg); }
+  #menu .perigo { color: #f88; }
+  .hi { padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,.1); } .hi i { display: block; font-style: normal; opacity: .55; font-size: 10px; } .hi b { color: #fff; }
+  #pop pre { white-space: pre-wrap; font: inherit; font-size: 12px; line-height: 16px; margin: 0; }
+  #iaw p { margin: 6px 0; font-weight: normal; } #iaw .av { color: #fd8; } #iaw .hw { opacity: .8; }
+  .card { display: block; width: 100%; text-align: left; padding: 6px 8px; margin: 4px 0; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.2); }
+  .card.on { box-shadow: inset 0 0 0 2px var(--fg); } .card span { font-weight: normal; opacity: .85; }
+  .card em { font-style: normal; font-size: 10px; padding: 1px 5px; border-radius: 6px; background: var(--fg); color: var(--bg); }
+  #iaw .mf { position: sticky; bottom: -6px; padding: 6px 0 2px; background: rgba(8,10,8,.98); }
+  .bar { height: 10px; border-radius: 5px; box-shadow: inset 0 0 0 1px var(--fg); margin: 8px 0 4px; } .bar i { display: block; height: 100%; background: var(--fg); border-radius: 5px; }
+</style>
+
+<div id="tv" data-cor="verde">
+  <div id="tela" title="Clique pra puxar conversa">
+    <div id="img">
+      <canvas id="cv" width="288" height="216"></canvas>
+      <div id="diario" hidden></div>
+      <div id="osd"></div>
+    </div>
+    <button id="eng" aria-label="Configurações" title="Configurações">⚙</button>
+    <button id="fechar" title="Minimizar para a bandeja">✕</button>
+    <button id="expandir" title="Expandir" hidden>⤢</button>
+    <div id="vel"></div>
+    <div id="zoom"><button id="z-m" title="Afastar (roda do mouse)">−</button><button id="z-c" title="Seguir o fazendeiro (cena e camera)">⌖</button><button id="z-p" title="Aproximar (roda do mouse)">+</button><button id="z-h" title="Histórico">≡</button></div>
+  </div>
+  <div id="hud"><div id="h1"></div><div id="h2"></div><div id="h3"></div></div>
+  <div id="ctl">
+    <button id="c-prev" title="Canal anterior">◀</button><span id="c-ch"></span><button id="c-next" title="Próximo canal">▶</button><i></i>
+    <button id="c-vm" title="Volume -">−</button><span id="c-vol"></span><button id="c-vp" title="Volume +">+</button><i></i>
+    <button id="c-crt" title="Efeito CRT">CRT</button><button id="c-cor" title="Trocar cor"></button>
+  </div>
+  <div id="legenda" aria-live="polite" title="Histórico"></div>
+  <div id="menu" hidden></div><div id="pop" hidden></div><div id="iaw" hidden></div>
+</div>
+
+
+<script src="arte/sprites.js"></script>
+<script src="i18n.js"></script>
+<script src="sim.js"></script>
+<script>
+const MES_MS = 20000;  // 1 mes da vida dele = 20 s reais (1 ano = 4 min, uma vida = umas 3 a 5 horas)
+const DIA_MS = 120000; // dia e noite na tela
+const $ = id => document.getElementById(id);
+
+// ---------- estado ----------
+let cfg = { canal: 0, vol: 2, crt: true, cor: 'verde', zoom: 2, seguir: true, vel: 1, lang: 'pt', volFx: 5, volTxt: 3, voz: 'suave', tam: 1 }, s;
+try { Object.assign(cfg, JSON.parse(localStorage.cfg)); s = JSON.parse(localStorage.vidinha); } catch {}
+s ||= Sim.novo(Date.now());
+Sim.migra(s);
+const VELS = [0, 1, 3, 10, 30]; // velocidades do tempo (0 = pausa)
+if (!VELS.includes(cfg.vel)) cfg.vel = 1;
+if (!I18N.UI[cfg.lang]) cfg.lang = 'pt';
+I18N.set(cfg.lang); Sim.setLang(cfg.lang);
+const T = I18N.t, esc = x => String(x).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+let tv = Date.now(), acc = 0, ultR = performance.now(); // tv = relogio do mundo (anda mais rapido ou mais devagar que o real)
+// a vida continuou enquanto o app estava fechado (no maximo 600 meses por vez)
+for (let n = Math.min(600, (Date.now() - (+localStorage.ultimo || Date.now())) / MES_MS | 0); n > 0; n--) Sim.step(s);
+const salvar = () => { localStorage.vidinha = JSON.stringify(s); localStorage.cfg = JSON.stringify(cfg); localStorage.ultimo = Date.now(); };
+
+// ---------- som: notas suaves (seno/triangulo com envelope e filtro) no lugar do bip quadrado ----------
+let ac;
+const MESTRE = [0, .45, .75, 1], VOL = MESTRE; // volume geral (botoes da barra); efeitos e voz do texto tem controle proprio nas configuracoes
+const gFx = () => MESTRE[cfg.vol] * cfg.volFx / 10, gTxt = () => MESTRE[cfg.vol] * cfg.volTxt / 10;
+function nota(f, d, g, tipo = 'sine', quando = 0) {
+  if (g <= 0) return;
+  ac ??= new AudioContext();
+  const o = ac.createOscillator(), a = ac.createGain(), fl = ac.createBiquadFilter(), t0 = ac.currentTime + quando;
+  o.type = tipo; o.frequency.value = f; fl.type = 'lowpass'; fl.frequency.value = 2400;
+  a.gain.setValueAtTime(.0001, t0); a.gain.exponentialRampToValueAtTime(Math.max(.0002, g * .3), t0 + .012); a.gain.exponentialRampToValueAtTime(.0001, t0 + d);
+  o.connect(fl).connect(a).connect(ac.destination); o.start(t0); o.stop(t0 + d + .03);
+}
+function ruido(d, g, freq) {
+  if (g <= 0) return;
+  ac ??= new AudioContext();
+  const b = ac.createBuffer(1, Math.floor(ac.sampleRate * d), ac.sampleRate), x = b.getChannelData(0), n = ac.createBufferSource(), a = ac.createGain(), fl = ac.createBiquadFilter();
+  for (let i = 0; i < x.length; i++) x[i] = Math.random() * 2 - 1;
+  fl.type = 'lowpass'; fl.frequency.value = freq; a.gain.setValueAtTime(g * .25, ac.currentTime); a.gain.exponentialRampToValueAtTime(.0001, ac.currentTime + d);
+  n.buffer = b; n.connect(fl).connect(a).connect(ac.destination); n.start();
+}
+const bip = (f, d = .06, quando = 0) => nota(f, Math.max(d, .1), gFx(), 'sine', quando);
+const toca = notas => notas.forEach((f, i) => nota(f, .4, gFx(), 'triangle', i * .12));
+const SONS = { amor: [523, 659, 784], filho: [523, 587, 659, 784], morte: [392, 330, 262, 196], nasce: [262, 392, 523],
+  ruim: [220, 196], bom: [440, 554], gente: [440, 494], estranho: [330, 392, 330, 494] };
+function clique(voz) { // som de cada letra que ele "fala": tres estilos suaves
+  const g = gTxt(); if (g <= 0 || cfg.voz === 'mudo') return;
+  if (cfg.voz === 'teclado') ruido(.018, g * .7, 2600);
+  else if (cfg.voz === 'bichinho') nota(voz * 1.7 + Math.random() * 140, .07, g, 'triangle');
+  else nota(voz * .9 + Math.random() * 50, .05, g, 'sine');
+}
+const chiado = () => ruido(.16, gFx() * .5, 1800);
+
+// ---------- legenda (fala dele e acontecimentos) ----------
+const fila = [];
+let falando = false, digitando = false;
+function dizer(txt, quem) { // quem vazio = acontecimento narrado
+  s.hist.push({ a: Math.floor(s.vida.idade), e: Sim.est(s), q: quem || '', x: txt }); if (s.hist.length > 100) s.hist.shift();
+  if (fila.length > 3) fila.shift();
+  fila.push([txt, quem]);
+  if (!digitando) proxima();
+}
+function proxima() {
+  const it = fila.shift();
+  if (!it) { digitando = false; $('legenda').textContent = ''; return; }
+  digitando = true;
+  const quem = it[1], txt = I18N.tr(it[0]), el = $('legenda'), voz = 300 - s.vida.idade * 1.5;
+  el.className = quem ? '' : 'narr';
+  el.style.fontSize = txt.length > 115 ? '9px' : txt.length > 75 ? '10px' : '11px'; // texto longo: letra menor pra caber (o historico guarda tudo)
+  falando = !!quem;
+  let i = 0;
+  const id = setInterval(() => {
+    el.textContent = (quem ? quem + ': ' : '★ ') + txt.slice(0, ++i);
+    if (quem && i % 2 && txt[i - 1] !== ' ') clique(voz);
+    if (i >= txt.length) { clearInterval(id); falando = false; setTimeout(proxima, fila.length ? 2500 : 7000); }
+  }, 35);
+}
+
+// ---------- mente ----------
+let iaAtiva = false; // vira true quando ha um modelo de IA escolhido (janela do cerebro)
+let pensando = false, iaFila = Promise.resolve(), iaPend = 0;
+function pedeIA(p) { // um pedido por vez pro modelo; se ja ha 3 na fila, descarta (nao trava o app)
+  if (!iaAtiva || !window.ia || iaPend >= 3) return Promise.resolve(null);
+  iaPend++;
+  const r = iaFila.then(() => window.ia(p)).catch(() => null);
+  iaFila = r; r.finally(() => iaPend--);
+  return r;
+}
+const tira = txt => String(txt || '').replace(/<think>[\s\S]*?<\/think>/g, '');
+async function pensar() {
+  if (pensando) return;
+  pensando = true;
+  const v = s.vida, vis = s.visitante;
+  let quem = v.nome, txt;
+  if (vis && Math.random() < .3) { // o visitante tambem fala
+    quem = vis.nome;
+    txt = Sim.limpa(tira(await pedeIA({ max: 60, sistema: `Você é ${vis.nome}, ${vis.papel}, visitando a roça de ${v.nome}. ${vis.segredo ? 'Seu segredo: ' + vis.segredo + '. ' : ''}Responda ${Sim.lt()} com UMA fala curta (até 120 caracteres), sem aspas, sem emoji.`, pedido: 'Diga algo ao fazendeiro.' })), 160) || vis.fala || `Que lugar bonito, ${v.nome}.`;
+  } else {
+    txt = Sim.limpa(tira(await pedeIA(Sim.prompt(s))), 160) || Sim.falaPronta(s);
+    if (v === s.vida) { v.falas.push(txt); if (v.falas.length > 3) v.falas.shift(); }
+  }
+  if (v === s.vida) dizer(txt, quem); // nao fala depois de morto
+  pensando = false;
+}
+(function agenda() {
+  const k = cfg.vel > 1 ? Math.min(cfg.vel, 4) : 1;
+  setTimeout(() => { if (cfg.vel > 0) pensar(); agenda(); }, Math.max(15000, (60000 + Math.random() * 90000) / k));
+})();
+setTimeout(pensar, 4000);
+
+// a IA inventa o que o sorteio so esboca: perfil de cada vida, licoes, o texto do evento estranho e quem e o visitante
+async function enriquecePerfil(v) {
+  const c = Sim.leCampos(await pedeIA(Sim.pedidoPerfil(v)), ['sonho', 'medo', 'mania', 'passado']);
+  if (Object.keys(c).length) Object.assign(v.perfil, c, { ia: true });
+}
+async function refletir(v) {
+  const r = Sim.limpa(tira(await pedeIA(Sim.pedidoLicao(s, v))), 110);
+  if (r && v === s.vida) { v.licoes.push(r); if (v.licoes.length > 4) v.licoes.shift(); dizer(r, v.nome); }
+}
+async function inventaEvento() {
+  const ev = s.evento, r = ev && Sim.limpa(tira(await pedeIA(Sim.pedidoEvento(s, ev.cena))), 110);
+  if (r && s.evento === ev) { ev.txt = r; dizer(r); }
+}
+async function criaVisitante(vis) {
+  const c = Sim.leCampos(await pedeIA(Sim.pedidoVisitante(vis)), ['segredo', 'fala']);
+  if (s.visitante === vis) { Object.assign(vis, c); if (c.fala) dizer(c.fala, vis.nome); }
+}
+
+let ultAno = Math.floor(s.vida.idade);
+function passaMes() {
+  const v0 = s.vida;
+  for (const ev of Sim.step(s)) {
+    dizer(ev.txt); interesse(ev);
+    if (cfg.vel <= 3) toca(SONS[ev.tipo] || SONS.bom);
+    if (ev.tipo === 'nasce') enriquecePerfil(s.vida);
+    if (ev.tipo === 'estranho' && cfg.vel <= 3) inventaEvento();
+    if (ev.visitante && cfg.vel <= 3) criaVisitante(s.visitante);
+  }
+  const ano = Math.floor(s.vida.idade);
+  if (ano !== ultAno) { ultAno = ano; if (s.vida === v0 && ano % 2 === 0 && cfg.vel <= 10) refletir(s.vida); }
+  salvar();
+}
+
+// ---------- desenho ----------
+// O mundo de cada cena tem 288x216 unidades; a tela (canvas 288x216) mostra VW/z x VH/z delas. z = 1, 2 ou 3 (inteiro: pixel nitido).
+const g = $('cv').getContext('2d', { willReadFrequently: true }), VW = 288, VH = 216, W = 288, A = 216;
+let t = 0, estatica = 0;
+const R = (x, y, w, h, c) => { g.fillStyle = c; g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+const disco = (cx, cy, r, c) => { for (let dy = -r; dy <= r; dy++) { const w = Math.floor(Math.sqrt(r * r - dy * dy) + .5); R(cx - w, cy + dy, 2 * w + 1, 1, c); } };
+const elip = (cx, cy, rx, ry, c) => { for (let dy = -ry; dy <= ry; dy++) { const w = Math.floor(rx * Math.sqrt(1 - (dy / ry) ** 2) + .5); R(cx - w, cy + dy, 2 * w + 1, 1, c); } };
+const rn = i => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }; // ruido fixo pros enfeites
+const cor = n => `hsl(${[...n].reduce((a, c) => a + c.charCodeAt(0) * 37, 0) % 360} 55% 50%)`;
+const dia = () => (tv / DIA_MS) % 1;
+const noite = () => dia() > 0.6;
+// onde ele esta agora: de noite em casa; de dia na roça, e a cada 3 dias vai pra vila
+// de manha cedo e a noite em casa; no resto do dia trabalha na roça (e a cada 3 dias passa o dia na vila)
+const lugar = () => { const d = dia(); return d < .1 || d >= .6 ? 'casa' : (tv / DIA_MS | 0) % 3 === 2 ? 'vila' : 'roça'; };
+const zzz = (x, y) => { R(x, y, 3, 1, '#fff'); R(x + 1, y + 1, 1, 1, '#fff'); R(x, y + 2, 3, 1, '#fff'); };
+
+// ---------- camera ----------
+const ZOOMS = [1, 2, 3];
+const cam = { x: 0, y: 0, z: ZOOMS.includes(cfg.zoom) ? cfg.zoom : 2, foco: [W / 2, A / 2], centrar: true, int: null };
+const limita = () => { cam.x = Math.max(0, Math.min(W - VW / cam.z, cam.x)); cam.y = Math.max(0, Math.min(A - VH / cam.z, cam.y)); };
+const setFoco = (x, y) => { cam.foco = [x, y]; };
+function segue() { // a camera sempre acompanha o foco com suavidade
+  const f = cam.int && performance.now() < cam.int.ate ? [cam.int.x, cam.int.y] : cam.foco, vw = VW / cam.z, vh = VH / cam.z, ax = f[0] - vw / 2, ay = f[1] - vh / 2;
+  if (cam.centrar) { cam.x = ax; cam.y = ay; cam.centrar = false; } else { cam.x += (ax - cam.x) * .08; cam.y += (ay - cam.y) * .08; }
+  limita();
+}
+function olhaPara(x, y, ms = 7000) { cam.int = { x, y, ate: performance.now() + ms }; } // a camera da uma olhada no que aconteceu
+function interesse(ev) { // um acontecimento importante chama a camera por alguns segundos
+  const c = cfg.canal; if (c === 3) return;
+  if (ev.visitante) olhaPara(c === 2 ? 214 : c === 1 ? 236 : 112, c === 2 ? 170 : c === 1 ? 160 : 118);
+  else if (ev.tipo === 'estranho' && c !== 1) olhaPara(144, 50);
+  else if (/^Nasce/.test(ev.txt) && c === 0) olhaPara(60, 170);
+  else if (ev.tipo === 'filho' && c === 1) olhaPara(190, 170);
+}
+function zoom(d) {
+  const i = Math.max(0, Math.min(ZOOMS.length - 1, ZOOMS.indexOf(cam.z) + d));
+  if (ZOOMS[i] === cam.z) return;
+  const cx = cam.x + VW / cam.z / 2, cy = cam.y + VH / cam.z / 2;
+  cam.z = ZOOMS[i]; cam.x = cx - VW / cam.z / 2; cam.y = cy - VH / cam.z / 2; limita();
+  cfg.zoom = cam.z; salvar(); osd(T('zoom') + ' ' + cam.z + 'x');
+}
+
+// ---------- sprites de 16 bits (arte/sprites.js) ----------
+const cache = {};
+const spr = (k, fn) => cache[k] ??= fn();
+const S = (c, x, y) => g.drawImage(c, Math.round(x), Math.round(y));
+const passo = anda => anda ? 1 + ((t >> 2) & 1) : 0;
+// nomes sobre gente e bichos: fonte de pixel 3x5, desenhada por ultimo (so de perto: zoom 2x ou mais)
+const rotulos = [];
+const nomeEm = (x, y, txt) => { if (txt) rotulos.push([x, y, txt]); };
+const FONTE = { A: '010101111101101', B: '110101110101110', C: '011100100100011', D: '110101101101110', E: '111100110100111', F: '111100110100100', G: '011100101101011', H: '101101111101101',
+  I: '111010010010111', J: '001001001101010', K: '101101110101101', L: '100100100100111', M: '101111111101101', N: '110101101101101', O: '010101101101010', P: '110101110100100',
+  Q: '010101101111011', R: '110101110101101', S: '011100010001110', T: '111010010010010', U: '101101101101111', V: '101101101101010', W: '101101111111101', X: '101101010101101',
+  Y: '101101010010010', Z: '111001010100111' };
+function desenhaRotulos() {
+  if (cam.z < 2) return;
+  for (const [x, y0, txt] of rotulos) {
+    const sx = x - cam.x, sy = y0 - cam.y; if (sx < -20 || sy < -10 || sx > VW / cam.z + 20 || sy > VH / cam.z + 10) continue;
+    const str = txt.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z ]/g, ''), w = str.length * 4 - 1, y = Math.round(y0);
+    let cx = Math.round(x - w / 2);
+    R(cx - 2, y - 1, w + 4, 7, 'rgba(0,0,0,.55)');
+    for (const ch of str) { const f = FONTE[ch]; if (f) for (let i = 0; i < 15; i++) if (f[i] === '1') R(cx + i % 3, y + (i / 3 | 0), 1, 1, '#fff'); cx += 4; }
+  }
+}
+// andarilhos: vao de um ponto a outro do mapa, param um pouco e escolhem outro destino
+const atores = {};
+function anda(id, x0, y0, alvos, vel = 1, espMin = 30, espMax = 110) {
+  const a = atores[id] ??= { x: x0, y: y0, ax: x0, ay: y0, espera: 0, mov: false };
+  if (a.espera > 0) { a.espera--; a.mov = false; return a; }
+  const dx = a.ax - a.x, dy = a.ay - a.y, d = Math.hypot(dx, dy);
+  if (d < 1.5) { const al = alvos[Math.floor(Math.random() * alvos.length)]; a.ax = al[0] + (Math.random() - .5) * 8; a.ay = al[1]; a.espera = espMin + Math.random() * (espMax - espMin); a.mov = false; }
+  else { a.x += dx / d * Math.min(vel, d); a.y += dy / d * Math.min(vel, d); a.mov = true; }
+  return a;
+}
+const sFaz = (f, velho) => spr('f' + f + velho, () => Arte.fazendeiro(f, velho ? { barba: 1, cabelo: '#cfcfcf' } : {}));
+const eu = (x, y, anda) => { const c = sFaz(passo(anda), s.vida.idade > 55); S(c, x, y - c.height + 1); setFoco(x + 9, y - 12); nomeEm(x + c.width / 2, y - c.height - 6, s.vida.nome); };
+const esposa = (x, y, anda) => { const k = passo(anda), c = spr('m' + k, () => Arte.mulher(k)); S(c, x, y - c.height + 1); nomeEm(x + c.width / 2, y - c.height - 6, s.vida.par?.nome); };
+const filho = (f, x, y, anda) => { const k = f.idade > 2 && f.idade < 12 ? passo(anda ?? 1) : 0, c = spr('k' + f.nome + k, () => Arte.crianca(cor(f.nome), k)); S(c, x, y - c.height + 1); nomeEm(x + c.width / 2, y - c.height - 6, f.nome); };
+const npcSpr = (p, k) => { // povo da vila: cor sorteada, crianca/adulto/idoso
+  const velho = p.idade > 60, c = `hsl(${p.cor} 55% 45%)`;
+  return spr('n' + p.id + k + (p.idade < 12 ? 'c' : velho ? 'v' : 'a'), () => p.idade < 12 ? Arte.crianca(c, k)
+    : p.fem ? Arte.mulher(k, { vestido: c, cabelo: velho ? '#cfcfcf' : `hsl(${(p.cor * 7) % 40 + 10} 50% 28%)` })
+    : Arte.fazendeiro(k, velho ? { mac: c, macS: c, barba: 1, cabelo: '#cfcfcf' } : { mac: c, macS: c }));
+};
+const viz = (x, y, anda) => { // visitante (criado pelo sorteio e enfeitado pela IA)
+  const V = s.visitante; if (!V) return;
+  const k = passo(anda), c = spr('viz' + V.nome + V.cor + k, () => V.fem ? Arte.mulher(k, { vestido: `hsl(${V.cor} 60% 42%)`, cabelo: '#222' }) : Arte.fazendeiro(k, { mac: `hsl(${V.cor} 60% 42%)`, macS: `hsl(${V.cor} 60% 30%)`, cabelo: '#222' }));
+  S(c, x, y - c.height + 1); nomeEm(x + c.width / 2, y - c.height - 6, V.nome);
+};
+const filhosEmCasa = v => v.filhos.filter(f => !f.fora);
+const cerca = (x0, y0, x1, y1) => { // retangulo de cerca (so as bordas)
+  R(x0, y0, x1 - x0, 1, '#c9a56a'); R(x0, y1, x1 - x0, 1, '#c9a56a'); R(x0, y0 + 4, x1 - x0, 1, '#c9a56a'); R(x0, y1 - 4, x1 - x0, 1, '#c9a56a');
+  for (let x = x0; x <= x1; x += 10) { R(x, y0 - 3, 2, 8, '#b08850'); R(x, y1 - 3, 2, 8, '#b08850'); R(x, y0 - 3, 1, 8, '#d4b078'); }
+  for (let y = y0; y <= y1; y += 10) { R(x0, y - 2, 2, 7, '#b08850'); R(x1, y - 2, 2, 7, '#b08850'); }
+};
+const fumaca = (x, y) => { if (!noite()) disco(x + (t >> 4) % 3, y - (t >> 3) % 4, 2, 'rgba(255,255,255,.4)'); };
+
+function morros(hor, ca, cb) {
+  for (let x = 0; x < W; x++) {
+    const h1 = hor - 14 - 6 * Math.sin(x / 19) - 3 * Math.sin(x / 7 + 2), h2 = hor - 6 - 4 * Math.sin(x / 11 + 1) - 2 * Math.sin(x / 5);
+    R(x, h1, 1, hor - h1, ca); R(x, h2, 1, hor - h2, cb);
+  }
+}
+function ceu(hor = 62) {
+  const d = dia(), n = d > 0.6, ent = d > 0.5 && d <= 0.6;
+  const faixas = n ? ['#050a2a', '#0a1240', '#101a55', '#1a2468', '#26307a', '#33408a']
+    : ent ? ['#3a2a6a', '#7a3a7a', '#c4527a', '#e8805a', '#f4a860', '#ffd080']
+    : ['#3f8fe0', '#58a4ea', '#72b8f0', '#8fcaf4', '#aedaf8', '#cbe8fa'];
+  faixas.forEach((c, i) => R(0, Math.floor(i * hor / 6), W, Math.ceil(hor / 6) + 1, c));
+  if (n) for (let i = 0; i < 56; i++) R(rn(i) * W, rn(i + 40) * (hor - 24), 1, 1, (t + i * 7) % 50 < 40 ? '#fff' : '#556');
+  const a = (n ? (d - 0.6) / 0.4 : d / 0.6) * Math.PI, x = W / 2 - Math.cos(a) * (W * .46), y = hor - 8 - Math.sin(a) * (hor - 22);
+  if (n) { disco(x, y, 8, 'rgba(220,230,255,.12)'); disco(x, y, 4, '#eef0d8'); disco(x + 1, y - 1, 1, '#c8ccb0'); disco(x - 2, y + 1, 1, '#c8ccb0'); }
+  else { disco(x, y, 10, 'rgba(255,230,120,.18)'); disco(x, y, 7, 'rgba(255,230,120,.3)'); disco(x, y, 4, '#ffe04a'); }
+  const nuv = n ? '#2c3678' : ent ? '#f8c8a0' : '#fff', som = n ? '#222c66' : ent ? '#e0a088' : '#dbe8f6';
+  for (let i = 0; i < 6; i++) {
+    const cx = ((t / 9 + i * 58) % (W + 40)) - 20, cy = 8 + (i % 3) * 9;
+    R(cx - 3, cy + 2, 20, 3, som); disco(cx, cy + 1, 3, nuv); disco(cx + 6, cy - 1, 4, nuv); disco(cx + 12, cy, 3, nuv); R(cx - 2, cy + 1, 16, 2, nuv);
+  }
+  morros(hor, n ? '#0f2a30' : ent ? '#6a4a7a' : '#7fb0b8', n ? '#143a30' : ent ? '#4a6a4a' : '#5a9a6a');
+}
+const noiteSobre = () => { if (noite()) R(0, 0, W, A, 'rgba(0,0,40,.32)'); };
+
+// ---------------- ROCA ----------------
+function feno(x, y) { elip(x, y, 11, 8, '#d8b44a'); R(x - 11, y, 23, 8, '#5aa832'); elip(x, y - 1, 10, 7, '#e8c860'); R(x - 10, y + 2, 21, 6, '#5aa832'); for (let i = -8; i < 9; i += 4) R(x + i, y - 6 + Math.abs(i) / 3, 1, 6, '#b8942a'); R(x - 11, y, 23, 1, '#8a6a1a'); }
+function roca(v) {
+  const hor = 60;
+  setFoco(144, 110);
+  ceu(hor);
+  const ch = ['#5aa832', '#6cb83a', '#a89a38', '#c9d8dc'][Sim.est(s)];
+  R(0, hor, W, A - hor, ch); R(0, hor, W, 2, 'rgba(255,255,255,.25)'); R(0, hor + 2, W, 1, 'rgba(0,0,0,.15)');
+  for (let i = 0; i < 120; i++) R(rn(i + 7) * W, hor + 4 + rn(i + 90) * (A - hor - 8), 1, 2, 'rgba(0,0,0,.2)');
+  const arv = spr('arv', Arte.arvore);
+  S(arv, 2, 26); S(spr('cel', Arte.celeiro), 94, 18); S(arv, 150, 24); S(arv, 252, 22); S(arv, 250, 140);
+  S(spr('hcasa', () => Arte.casinha('#e0c8a0', '#a04a30')), 200, 26); fumaca(224, 28);
+  cerca(36, 62, 92, 66);
+  // plantacao: o estagio acompanha o ciclo da colheita
+  const est = v.plantio < .25 ? 0 : v.plantio < .5 ? 1 : v.plantio < .8 ? 2 : 3, linhas = Math.min(v.terra, 5);
+  for (let i = 0; i < linhas; i++) {
+    const y = 70 + i * 8;
+    R(32, y + 12, 226, 3, '#5e3818'); R(32, y + 11, 226, 1, '#7a4a24');
+    for (let c = 0; c < 22; c++) { const k = Math.max(0, est - ((c * 3 + i) % 5 === 0 ? 1 : 0)); S(spr('p' + k, () => Arte.planta(k)), 34 + c * 10, y); }
+  }
+  // curral: cada bicho e um de verdade (especie, idade, filhote) e anda por ali
+  R(10, 134, 96, 68, '#7a9a3a'); for (let i = 0; i < 40; i++) R(12 + rn(i + 300) * 92, 136 + rn(i + 340) * 64, 2, 1, '#8a6a3a');
+  cerca(8, 132, 108, 204);
+  v.bichos.map(b => ({ b, x: 14 + (b.id * 37) % 76 + Math.round(Math.sin(t / 25 + b.id) * 4), y: 138 + (b.id * 53) % 50 })).sort((a, c) => a.y - c.y).forEach(({ b, x, y }) => {
+    const jov = b.idade < Sim.ESP[b.e].ad, an = b.e === 'galinha' ? (t >> 3) % 4 === b.id % 4 : b.e === 'cachorro' ? (t >> 2) & 1 : 0;
+    const sp = spr('b' + b.e + (jov ? 1 : 0) + an, () => Arte.bicho(b.e, jov, an)); S(sp, x, y); nomeEm(x + sp.width / 2, y - 6, b.nome);
+  });
+  // lagoa
+  elip(155, 176, 38, 20, '#6a7a3a'); elip(155, 175, 35, 18, '#3f86c8'); elip(155, 174, 30, 14, '#5aa4e0');
+  for (let j = 0; j < 7; j++) if ((t + j * 9) % 34 < 12) R(128 + rn(j) * 52 + Math.sin(t / 12 + j) * 2, 164 + rn(j + 9) * 22, 4, 1, '#d6ecff');
+  elip(140, 180, 4, 2, '#3a8a3a'); elip(172, 170, 3, 2, '#3a8a3a'); R(139, 179, 2, 1, '#f4a0c0');
+  for (let i = 0; i < 3; i++) { R(188 + i * 3, 158 + i, 1, 9, '#6a5a2a'); R(188 + i * 3, 156 + i, 1, 3, '#4a3a1a'); }
+  feno(228, 160); feno(250, 190); feno(214, 186);
+  for (let i = 0; i < 60; i++) { const x = rn(i * 3) * W, y = 66 + rn(i * 3 + 1) * 146; if (y > 118 && ((x > 4 && x < 102 && y < 208) || (x > 116 && x < 196 && y > 154 && y < 198))) continue; R(x, y, 1, 3, '#3a8a2a'); R(x, y - 1, 1, 1, ['#f4d', '#fd3', '#fff', '#f84'][i % 4]); }
+  if (!noite()) { // familia na lida: cada um anda por varios pontos do mapa
+    v.filhos.filter(f => !f.fora).forEach((f, i) => { const a = anda('k' + i, 210, 70, [[205, 68], [240, 70], [190, 78], [225, 100], [180, 122], [120, 140]], .8); filho(f, a.x, a.y, a.mov); });
+    if (v.par) { const a = anda('e-roca', 160, 86, [[150, 84], [200, 66], [240, 72], [180, 106], [60, 100], [150, 204]], .9); esposa(a.x, a.y, a.mov); }
+    if (s.visitante) { const a = anda('viz-roca', 112, 128, [[112, 128], [140, 120], [170, 128], [200, 110], [60, 70]], .7); viz(a.x, a.y, a.mov); }
+  }
+  noiteSobre();
+  if (noite()) {
+    R(110, 31, 6, 6, '#ffd060'); R(112, 31, 2, 6, '#8a5a20'); R(206, 45, 6, 6, '#ffd060'); R(223, 45, 6, 6, '#ffd060');
+    for (let i = 0; i < 18; i++) { const x = 12 + rn(i) * 264 + Math.sin(t / 15 + i) * 5, y = 66 + rn(i + 20) * 140 + Math.cos(t / 12 + i) * 3; if ((t + i * 9) % 30 < 20) { R(x, y, 1, 1, '#ffe97a'); R(x - 1, y, 3, 1, 'rgba(255,233,122,.3)'); } }
+  } else if (lugar() === 'roça') { const a = anda('f-roca', 150, 90, [[60, 84 + (linhas > 1 ? 8 : 0)], [150, 84 + (linhas - 1) * 8], [230, 84], [60, 172], [150, 208], [116, 70], [217, 66], [30, 68], [230, 178]], 1.3); eu(a.x, a.y, a.mov); }
+}
+
+// ---------------- CASA ----------------
+function janela(x, vista) {
+  R(x, 12, 34, 34, '#3a2010'); R(x + 3, 15, 28, 28, noite() ? '#0a1240' : '#8fcaf4');
+  if (noite()) { disco(x + 23, 24, 3, '#e8e8b0'); [[8, 20], [14, 30], [28, 34], [6, 36]].forEach(([a, b]) => R(x + a, b, 1, 1, '#fff')); }
+  else { disco(x + 10, 22, 3, '#ffe04a'); R(x + 16, 22, 8, 3, '#fff'); }
+  R(x + 3, 36, 28, 7, noite() ? '#143a30' : '#5a9a6a'); if (vista) { R(x + 10, 31, 6, 5, '#b83a2a'); R(x + 9, 30, 8, 1, '#7a2418'); }
+  R(x + 16, 15, 2, 28, '#3a2010'); R(x + 3, 28, 28, 2, '#3a2010'); R(x - 2, 46, 38, 3, '#4a2c18');
+  R(x, 12, 5, 34, '#a33'); R(x + 29, 12, 5, 34, '#a33'); for (let y = 14; y < 44; y += 4) { R(x + 1, y, 1, 3, '#7a2222'); R(x + 31, y, 1, 3, '#7a2222'); }
+}
+function lanterna(x) { R(x, 6, 1, 10, '#222'); R(x - 3, 15, 7, 9, '#444'); R(x - 2, 16, 5, 7, '#ffd060'); R(x - 3, 14, 7, 1, '#222'); }
+function casa(v) {
+  R(0, 0, W, 72, '#8a5a38');
+  for (let x = 0; x < W; x += 12) { R(x, 5, 1, 66, '#6e4528'); R(x + 1, 5, 1, 66, '#a06a42'); }
+  R(0, 0, W, 6, '#4a2c18'); R(0, 6, W, 1, '#2a1608');
+  R(0, 72, W, A - 72, '#5a3820'); for (let y = 76; y < A; y += 6) R(0, y, W, 1, '#3e2512'); for (let y = 74; y < A; y += 12) R(0, y, W, 1, '#704a2c');
+  for (let i = 0; i < 90; i++) R(rn(i + 500) * W, 74 + rn(i + 600) * (A - 76), 6, 1, '#4a2e18');
+  R(0, 68, W, 4, '#3a2010'); R(0, 68, W, 1, '#5a3820');
+  janela(42, true); janela(160, false);
+  // prateleira com livros e planta
+  R(6, 40, 28, 2, '#4a2c18'); R(8, 32, 2, 8, '#a33'); R(10, 34, 2, 6, '#36c'); R(12, 31, 2, 9, '#3a3'); R(14, 33, 2, 7, '#da2');
+  R(24, 35, 5, 5, '#a55'); R(25, 31, 3, 4, '#3a3'); R(24, 33, 1, 2, '#58c83a'); R(28, 32, 1, 3, '#58c83a');
+  // retrato de cada vida passada que ainda ecoa
+  s.ecos.forEach((_, i) => { const x = 82 + i * 9; R(x, 14, 8, 10, '#3a2010'); R(x + 1, 15, 6, 8, '#c8b890'); R(x + 3, 17, 2, 2, '#a88868'); R(x + 2, 20, 4, 3, '#887058'); });
+  // lareira
+  R(104, 38, 34, 36, '#6a6a70'); for (let y = 40; y < 72; y += 5) for (let x = 104 + (y % 10 ? 0 : 4); x < 136; x += 8) R(x, y, 7, 4, '#8a8a90');
+  R(102, 34, 38, 4, '#4a2c18'); R(112, 48, 18, 26, '#140806');
+  // cozinha: bancada, armarios, panelas e fogao
+  R(206, 18, 76, 1, '#555'); [[214, '#777'], [228, '#a55'], [262, '#888']].forEach(([x, c]) => { R(x, 19, 1, 4, '#555'); disco(x, 26, 4, c); });
+  R(204, 38, 80, 4, '#b08850'); R(206, 42, 76, 30, '#7a5030');
+  for (let i = 0; i < 3; i++) { R(210 + i * 22, 46, 18, 24, '#6a4226'); R(212 + i * 22, 48, 14, 20, '#7a5030'); R(226 + i * 22, 56, 2, 4, '#d9a95a'); }
+  R(240, 30, 26, 8, '#3a3a3e'); R(242, 32, 22, 4, '#222'); R(248, 28 - (t >> 3) % 3, 2, 3, 'rgba(255,255,255,.35)');
+  // cama
+  R(6, 50, 4, 28, '#4a2c18'); R(44, 58, 3, 20, '#4a2c18'); R(8, 66, 38, 8, '#e8e0d0'); R(8, 72, 38, 3, '#8a7a60');
+  R(14, 62, 32, 10, '#4a8a4a'); for (let x = 16; x < 46; x += 6) R(x, 62, 2, 10, '#3a7a3a'); for (let y = 64; y < 72; y += 4) R(14, y, 32, 1, '#5aa85a');
+  R(9, 60, 8, 5, '#fff'); R(9, 64, 8, 1, '#d8d8d8');
+  const dormindo = noite();
+  if (dormindo) { R(10, 58, 5, 5, '#eab27c'); R(8, 54, 10, 2, '#c9954a'); R(10, 52, 6, 3, '#d9a95a'); R(10, 54, 6, 1, '#8a3a22'); zzz(20 + (t >> 3) % 3 * 2, 52 - (t >> 3) % 3 * 3); }
+  // mesa com cadeiras, tapete
+  R(150, 140, 100, 52, '#a33'); R(154, 144, 92, 44, '#7a2222'); R(150, 140, 100, 1, '#d9a95a'); R(150, 191, 100, 1, '#d9a95a'); R(150, 140, 1, 52, '#d9a95a'); R(249, 140, 1, 52, '#d9a95a');
+  R(166, 104, 52, 6, '#b8803a'); R(166, 104, 52, 1, '#d9a85a'); R(170, 110, 3, 20, '#6a4226'); R(211, 110, 3, 20, '#6a4226');
+  disco(184, 103, 3, '#e8e0d0'); R(181, 101, 6, 2, '#c8a070'); R(200, 100, 6, 4, '#a33'); R(201, 99, 4, 1, '#58c83a');
+  R(156, 112, 8, 16, '#6a4226'); R(156, 112, 2, 16, '#8a5a30'); R(220, 112, 8, 16, '#6a4226'); R(226, 112, 2, 16, '#8a5a30');
+  // familia e cachorro
+  if (v.par) { const a = anda('e-casa', 168, 180, [[168, 180], [225, 112], [250, 84], [130, 122], [60, 112], [200, 152]], .8); esposa(a.x, a.y, a.mov); }
+  filhosEmCasa(v).forEach((f, i) => { const a = anda('k-casa' + i, 190 + i * 14, 184, [[190, 186], [160, 152], [230, 172], [130, 104], [100, 142]], .8); filho(f, a.x, a.y, a.mov); });
+  if (!dormindo && lugar() === 'casa') { const a = anda('f-casa', 200, 150, [[190, 152], [225, 124], [250, 84], [121, 104], [60, 112]], 1.2); eu(a.x, a.y, a.mov); }
+  const dx = 92 + Math.sin(t / 15) * 4 * (noite() ? 0 : 1), cd = spr('cao' + ((t >> 2) & 1), () => Arte.cachorro((t >> 2) & 1));
+  S(cd, dx, 130 - cd.height + 1);
+  if (s.visitante) { const a = anda('viz-casa', 236, 176, [[236, 176], [200, 140], [140, 110]], .7); viz(a.x, a.y, a.mov); }
+  if (dormindo) setFoco(30, 62); else if (lugar() !== 'casa') setFoco(190, 150);
+  if (noite()) R(0, 0, W, A, 'rgba(0,0,30,.3)');
+  lanterna(20); lanterna(152);
+  [20, 152].forEach(lx => { disco(lx, 19, 12, 'rgba(255,200,80,.16)'); disco(lx, 19, 7, 'rgba(255,200,80,.18)'); });
+  for (let i = 0; i < 5; i++) {
+    const h = 8 + Math.round(Math.sin(t / 3 + i * 2) * 3) + (i === 2 ? 5 : 0);
+    R(114 + i * 3, 72 - h, 3, h, '#d85a10'); R(115 + i * 3, 72 - h * .7, 2, h * .7, '#f08020'); R(115 + i * 3, 72 - h * .4, 1, h * .4, '#ffd040');
+  }
+  R(112, 72, 18, 2, '#3a2010'); disco(121, 66, 16, 'rgba(255,140,40,.10)');
+}
+
+// ---------------- VILA ----------------
+function barraca(x) {
+  R(x + 2, 50, 2, 12, '#7a5a30'); R(x + 22, 50, 2, 12, '#7a5a30');
+  for (let j = 0; j < 12; j++) R(x + j * 2, 44, 2, 6, j % 2 ? '#fff' : '#d33');
+  R(x - 1, 50, 28, 2, '#a02828'); R(x, 56, 26, 8, '#8a5a30'); R(x, 56, 26, 1, '#b07a40');
+  disco(x + 6, 55, 2, '#d33'); disco(x + 11, 55, 2, '#fd3'); disco(x + 16, 55, 2, '#6c3'); disco(x + 21, 55, 2, '#f84');
+}
+function vila(v) {
+  const hor = 58;
+  setFoco(144, 130);
+  ceu(hor);
+  R(0, hor, W, A - hor, '#c8a878'); R(0, hor, W, 7, '#a08860'); R(0, hor + 7, W, 1, '#887048');
+  for (let i = 0; i < 260; i++) R(rn(i + 3) * W, 68 + rn(i + 70) * (A - 72), 2, 1, i % 2 ? '#a88858' : '#d8b888');
+  // igreja
+  R(8, 34, 22, 28, '#eee6d4'); R(8, 34, 2, 28, '#d0c8b4'); R(28, 34, 2, 28, '#d0c8b4');
+  for (let r = 0; r < 9; r++) { const w = 10 + r * 2; R(19 - (w >> 1), 25 + r, w, 1, r % 2 ? '#a33' : '#b83a3a'); }
+  R(14, 10, 10, 26, '#eee6d4'); R(14, 10, 1, 26, '#d0c8b4'); R(23, 10, 1, 26, '#d0c8b4');
+  R(17, 14, 4, 7, '#2a2a2a'); R(18, 15, 2, 3, '#d9a020');
+  for (let r = 0; r < 9; r++) { const w = 2 + r * 1.3; R(19 - (w / 2), 2 + r, w, 1, '#a33'); }
+  R(19, -1, 1, 4, '#fd3'); R(18, 0, 3, 1, '#fd3');
+  R(15, 50, 8, 12, '#5a3418'); R(16, 49, 6, 1, '#5a3418'); R(21, 56, 1, 1, '#fd3');
+  R(10, 42, 3, 6, '#6bd'); R(25, 42, 3, 6, '#6bd'); R(11, 42, 1, 6, '#fff'); R(26, 42, 1, 6, '#fff');
+  // fileira de casas e barracas
+  [[44, '#d9b88a', '#a04a30'], [106, '#c8d4a8', '#4a6a8a'], [146, '#e8d0b0', '#8a3a4a'], [212, '#cfc0a0', '#4a7a5a'], [250, '#d4b8a0', '#6a4a8a']].forEach(([x, pa, te], i) => {
+    S(spr('h' + i, () => Arte.casinha(pa, te)), x, 28); fumaca(x + 23, 30);
+  });
+  barraca(78); barraca(182);
+  [42, 104, 176, 244].forEach(x => { R(x, 46, 1, 16, '#222'); R(x - 2, 42, 5, 4, noite() ? '#ffd060' : '#888'); R(x - 2, 41, 5, 1, '#222'); });
+  // praca: fonte, bancos, arvores, canteiro
+  const arv = spr('arv', Arte.arvore); S(arv, 6, 112); S(arv, 248, 116);
+  elip(144, 160, 32, 13, '#8a8a92'); elip(144, 159, 28, 10, '#4a90c8'); elip(144, 158, 22, 7, '#6ab0e8');
+  R(142, 134, 5, 24, '#a0a0a8'); R(142, 134, 2, 24, '#c0c0c8'); elip(144, 134, 11, 3, '#8a8a92'); elip(144, 134, 8, 2, '#4a90c8');
+  for (let j = 0; j < 7; j++) R(144 + (j - 3) * 4 + (j % 2), 134 + ((t * 1.3 + j * 7) % 24), 1, 2, '#cfe9ff');
+  for (const bx of [58, 206]) { R(bx, 156, 24, 3, '#8a5a30'); R(bx, 150, 24, 2, '#8a5a30'); R(bx + 2, 159, 2, 4, '#4a2c18'); R(bx + 20, 159, 2, 4, '#4a2c18'); R(bx + 2, 150, 2, 6, '#4a2c18'); R(bx + 20, 150, 2, 6, '#4a2c18'); }
+  R(100, 196, 88, 10, '#5a3a20'); R(100, 196, 88, 1, '#7a5030'); for (let i = 0; i < 14; i++) { const x = 104 + i * 6; R(x, 192, 1, 5, '#3a8a2a'); R(x, 191, 2, 2, ['#f4d', '#fd3', '#fff', '#f84'][i % 4]); }
+  [96, 192].forEach(x => { R(x, 112, 1, 26, '#222'); R(x - 2, 108, 5, 4, noite() ? '#ffd060' : '#888'); R(x - 2, 107, 5, 1, '#222'); });
+  noiteSobre();
+  if (noite()) { [42, 104, 176, 244].forEach(x => disco(x, 44, 9, 'rgba(255,208,96,.18)')); [96, 192].forEach(x => disco(x, 110, 11, 'rgba(255,208,96,.18)')); return; }
+  Sim.vivos(s).filter(p => p.idade >= 2).slice(0, 18).forEach((p, i) => { const c = npcSpr(p, passo(1)); const px = ((t / (5 + i % 4) + i * 47) % (W + 30)) - 15, py = 118 + (i % 5) * 20 - c.height + 1; S(c, px, py); nomeEm(px + c.width / 2, py - 6, p.nome); });
+  if (s.visitante) { const a = anda('viz-vila', 214, 184, [[214, 184], [170, 170], [100, 150], [60, 130]], .7); viz(a.x, a.y, a.mov); }
+  if (lugar() === 'vila') { const a = anda('f-vila', 150, 190, [[150, 190], [100, 130], [60, 160], [210, 160], [20, 70], [100, 70], [190, 70], [240, 130]], 1.2); eu(a.x, a.y, a.mov); }
+}
+
+function textoDiario() {
+  const v = s.vida, apr = Sim.aprendizado(s).slice(0, 3).map(a => Sim.ACOES[a]).join('; '), P = v.perfil || {};
+  const conhece = Sim.vivos(s).filter(p => v.rel[p.id]).map(p => p.nome + (v.rel[p.id].rival ? ` (${T('dRival')})` : v.rel[p.id].amigo ? ` (${T('dAmigo')})` : '')).join(', ') || '-';
+  const log = v.log.slice(-5).map(l => l.replace(/^(\d+) anos: (.*)$/, (m, a, x) => `${a} ${T('anos')}: ${I18N.tr(x)}`)).join('\n') || '-';
+  return `${T('dVida')} ${s.ciclo} · ${v.nome}, ${Math.floor(v.idade)} ${T('anos')} · ${T('estacoes')[Sim.est(s)]}\n` +
+    `${T('dJeito')}: ${I18N.tr(Sim.persona(v))}\n${T('dSonho')}: ${I18N.tr(P.sonho) || '-'} · ${T('dMedo')}: ${I18N.tr(P.medo) || '-'}\n` +
+    `$${Math.floor(v.dinheiro)} · ${T('terra')} ${v.terra} · ${T('dBichos')}: ${I18N.tr(Sim.bichosTxt(v))}\n${I18N.tr(Sim.familia(v))}\n` +
+    `${T('dConhece')}: ${conhece}\n${T('dAprendeu')}: ${apr || T('dDescobrindo')}\n${T('dVila')}: ${Sim.vivos(s).length} ${T('dPessoas')}\n` +
+    `${T('dUltimos')}\n${log}\n${T('dEcos')}\n${s.ecos.slice(-3).map(x => I18N.tr(x)).join('\n') || T('dPrimeira')}`;
+}
+function diario() {
+  R(0, 0, W, A, '#010');
+  if (t % 10) return;
+  $('diario').textContent = textoDiario();
+}
+
+// ---------- cenas fora do padrao: os eventos do sim.js viram efeitos por cima do mundo ----------
+const FX = {
+  tempestade() { R(0, 0, W, A, 'rgba(10,20,50,.45)'); for (let i = 0; i < 150; i++) R((rn(i) * W + t * 3) % W, (rn(i + 9) * A + t * 14 + i * 7) % A, 1, 5, 'rgba(200,220,255,.65)'); if (t % 47 < 2 || t % 91 < 1) R(0, 0, W, A, 'rgba(255,255,255,.55)'); },
+  neve() { R(0, 0, W, A, 'rgba(220,235,255,.2)'); for (let i = 0; i < 130; i++) R((rn(i) * W + Math.sin(t / 10 + i) * 6 + W) % W, (rn(i + 9) * A + t * (1 + rn(i) * 1.5)) % A, 2, 2, '#fff'); },
+  nevoa() { for (let i = 0; i < 5; i++) R(((t / 6 + i * 80) % (W + 120)) - 120, 50 + i * 35, 120, 22, 'rgba(235,240,245,.28)'); R(0, 0, W, A, 'rgba(220,225,235,.18)'); },
+  arcoiris() { g.globalAlpha = .55; ['#e33', '#f93', '#fd3', '#4c4', '#38f', '#63c', '#a4c'].forEach((c, i) => { const r = 110 - i * 4; for (let a = Math.PI; a <= 2 * Math.PI; a += .012) R(W / 2 + Math.cos(a) * r * 1.3, 125 + Math.sin(a) * r, 2, 2, c); }); g.globalAlpha = 1; },
+  ovni() {
+    const cx = W / 2 + Math.sin(t / 35) * 70, cy = 40 + Math.sin(t / 20) * 3;
+    g.globalAlpha = .25; g.fillStyle = '#ffff90'; g.beginPath(); g.moveTo(cx - 6, cy + 5); g.lineTo(cx + 6, cy + 5); g.lineTo(cx + 28, A * .75); g.lineTo(cx - 28, A * .75); g.fill(); g.globalAlpha = 1;
+    elip(cx, cy + 1, 16, 3, '#667'); elip(cx, cy - 3, 8, 5, '#cfe'); elip(cx, cy, 16, 4, '#9aa');
+    for (let i = 0; i < 5; i++) R(cx - 12 + i * 6, cy + 1, 2, 1, ((t >> 2) + i) & 1 ? '#ff4' : '#4f4');
+  },
+  festival() {
+    const cs = ['#e33', '#fd3', '#4c4', '#38f', '#f6c'];
+    for (let x = 0; x < W; x += 8) { const y = 6 + Math.sin(x / W * Math.PI * 3) * 5; R(x, y - 1, 8, 1, '#444'); R(x + 1, y, 5, 6, cs[(x / 8) % 5 | 0]); }
+    for (let i = 0; i < 70; i++) R((rn(i) * W + Math.sin(t / 8 + i) * 5 + W) % W, (rn(i + 9) * A + t * (1 + rn(i + 3))) % A, 2, 2, cs[i % 5]);
+  },
+  eclipse() { R(0, 0, W, A, 'rgba(0,0,30,.55)'); const a = Math.min(1, dia() / .6) * Math.PI, x = W / 2 - Math.cos(a) * W * .46, y = 52 - Math.sin(a) * 38; disco(x, y, 9, 'rgba(255,240,200,.3)'); disco(x, y, 6, '#050510'); },
+  fogos() {
+    for (let k = 0; k < 4; k++) {
+      const cx = 30 + rn(k + 50) * (W - 60), cy = 30 + rn(k + 60) * 60, ph = (t * 1.2 + k * 23) % 70;
+      if (ph < 40) for (let i = 0; i < 18; i++) { const a = i / 18 * 6.283; R(cx + Math.cos(a) * ph * .9, cy + Math.sin(a) * ph * .9 + ph * ph / 400, 2, 2, ['#f55', '#ff5', '#5f5', '#5cf', '#f5f'][k % 5]); }
+    }
+  },
+  estrelas() { for (let i = 0; i < 8; i++) { const x0 = (t * 3 + i * 61) % (W + 80), y0 = (rn(i) * 50 + x0 * .3) % 70; for (let j = 0; j < 6; j++) R(x0 - j * 3, y0 - j * 1.2, 2, 1, `rgba(255,255,220,${1 - j / 6})`); } },
+  sonho() {
+    R(0, 0, W, A, 'rgba(110,60,190,.3)');
+    for (let i = 0; i < 14; i++) { const x = rn(i) * W + Math.sin(t / 20 + i) * 10, y = (rn(i + 5) * A - t * .5 * (1 + rn(i)) + A * 4) % A; R(x, y, 2, 2, '#ffe'); if (i % 3 === 0) { disco(x, y, 3, 'rgba(255,255,220,.5)'); } }
+    g.globalAlpha = .7; S(spr('vaca0', () => Arte.bicho('vaca', false)), 120 + Math.sin(t / 30) * 40, 60 + Math.cos(t / 25) * 15); g.globalAlpha = 1;
+  },
+};
+
+const CANAIS = [['ROÇA', roca], ['CASA', casa], ['VILA', vila], ['DIÁRIO', diario]];
+
+// paleta retro: cada pixel vira um dos 6 tons de fosforo pela luminosidade. cor = null deixa as cores originais
+const PAL = {
+  verde: ['#050d08', '#0f2e17', '#1f5c22', '#3f9a2c', '#7fd23c', '#c8ff7a'],
+  ambar: ['#100700', '#321a00', '#6e3c00', '#b36a00', '#ee9d1a', '#ffd77a'], original: null };
+const CORTE = [25, 60, 95, 130, 170];
+function tinge() {
+  const pal = PAL[cfg.cor]?.map(h => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16)));
+  if (!pal) return;
+  const im = g.getImageData(0, 0, VW, VH), d = im.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const l = .3 * d[i] + .59 * d[i + 1] + .11 * d[i + 2], k = CORTE.findIndex(c => l < c), c = pal[k < 0 ? 5 : k];
+    d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2];
+  }
+  g.putImageData(im, 0, 0);
+}
+// TV de tubo: o quadro e remapeado com curvatura (barril) e o vermelho/azul ficam levemente fora de registro nas bordas
+const TUBO = [1.014, 1, .986].map(esc => {
+  const m = new Int16Array(VW * VH * 2);
+  for (let y = 0; y < VH; y++) for (let x = 0; x < VW; x++) {
+    const u = (x + .5) / VW * 2 - 1, v = (y + .5) / VH * 2 - 1, f = .94 * esc * (1 + .085 * (u * u + v * v));
+    const sx = Math.floor((u * f + 1) / 2 * VW), sy = Math.floor((v * f + 1) / 2 * VH), i = (y * VW + x) * 2, ok = sx >= 0 && sx < VW && sy >= 0 && sy < VH;
+    m[i] = ok ? sx : -1; m[i + 1] = ok ? sy : -1;
+  }
+  return m;
+});
+function tubo() {
+  const src = g.getImageData(0, 0, VW, VH).data, out = g.createImageData(VW, VH), d = out.data, faixa = (t * 2.5) % (VH + 90) - 40;
+  for (let y = 0; y < VH; y++) {
+    const off = Math.round(Math.sin(y / 11 + t / 4) * .8 + (y > faixa && y < faixa + 8 ? 2 : 0) + (Math.random() < .005 ? 3 : 0));
+    const br = (y & 1 ? .74 : 1.04) * (y > faixa && y < faixa + 16 ? 1.2 : 1);
+    for (let x = 0; x < VW; x++) {
+      const i = (y * VW + x) * 2, o = (y * VW + x) * 4, ruido = (Math.random() - .5) * 26;
+      for (let c = 0; c < 3; c++) {
+        const m = TUBO[c], sx = m[i];
+        d[o + c] = sx < 0 ? 0 : src[(m[i + 1] * VW + Math.max(0, Math.min(VW - 1, sx + off))) * 4 + c] * br + ruido;
+      }
+      d[o + 3] = 255;
+    }
+  }
+  g.putImageData(out, 0, 0);
+}
+setInterval(() => {
+  t++;
+  const agoraR = performance.now(), dt = Math.min(1000, agoraR - ultR); ultR = agoraR;
+  tv += dt * cfg.vel; acc += dt * cfg.vel;
+  while (acc >= MES_MS) { acc -= MES_MS; passaMes(); }
+  g.setTransform(1, 0, 0, 1, 0, 0); g.imageSmoothingEnabled = false;
+  const alvo = { 'roça': 0, casa: 1, vila: 2 }[lugar()];
+  if (cfg.seguir && cfg.canal !== alvo) { cfg.canal = alvo; estatica = 3; cam.centrar = true; chiado(); aplicar(); }
+  if (estatica-- > 0) {
+    R(0, 0, VW, VH, '#000');
+    for (let i = 0; i < 700; i++) R(Math.random() * VW, Math.random() * VH, 2, 1, Math.random() < .5 ? '#fff' : '#333');
+  } else {
+    segue();
+    g.setTransform(cam.z, 0, 0, cam.z, -Math.round(cam.x * cam.z), -Math.round(cam.y * cam.z));
+    rotulos.length = 0;
+    CANAIS[cfg.canal][1](s.vida);
+    const fx = s.evento && s.evento.fim > s.mes && FX[s.evento.cena];
+    if (fx && cfg.canal !== 3 && (cfg.canal !== 1 || s.evento.cena === 'sonho')) fx();
+    desenhaRotulos();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+  }
+  tinge();
+  if (cfg.crt) tubo();
+}, 100);
+
+// ---------- barra de status ----------
+function barra() {
+  const v = s.vida, c = Math.round(v.traits.otimismo * 5), est = T('estacoes')[Sim.est(s)], n = v.bichos.length;
+  const l1 = `<b>${v.nome}</b>, ${Math.floor(v.idade)} ${T('anos')} <i>·</i> ${T('vida')} ${s.ciclo} <i>·</i> ${est}`;
+  const l2 = `${T('animo')} <b>${'♥'.repeat(c)}${'♡'.repeat(5 - c)}</b> <i>·</i> <b>$${Math.floor(v.dinheiro)}</b> <i>·</i> ${T('terra')} <b>${v.terra}</b>`;
+  const l3 = `${T('bichos')} <b>${n}</b> <i>·</i> ${T('filhos')} <b>${v.filhos.length}</b> <i>·</i> ${T('amigos')} <b>${v.amigos.length}</b> <i>·</i> ${T('vila')} <b>${Sim.vivos(s).length}</b>`;
+  [['h1', l1], ['h2', l2], ['h3', l3]].forEach(([id, h]) => { if ($(id).innerHTML !== h) $(id).innerHTML = h; });
+}
+setInterval(barra, 1000); barra();
+
+// ---------- controles ----------
+let osdId;
+function osd(txt) { $('osd').textContent = txt; clearTimeout(osdId); osdId = setTimeout(() => $('osd').textContent = '', 2000); }
+if (!(cfg.cor in PAL)) cfg.cor = 'verde';
+const TAMS = [1, 1.33, 1.67, 2]; // pequeno, medio, grande, extra grande (fator sobre a janela de 300x372)
+if (!(cfg.tam >= 0 && cfg.tam < TAMS.length)) cfg.tam = 1;
+if (cfg.tamV !== 2) { cfg.tam = 1; cfg.tamV = 2; } // padrao novo: Medio (o menu e a UI ficam mais folgados)
+let janelaEstado = { topo: true, barra: false };
+
+function aplicar() {
+  $('tela').classList.toggle('crt', cfg.crt); $('tv').dataset.cor = cfg.cor;
+  $('diario').hidden = cfg.canal !== 3; $('expandir').hidden = cfg.canal !== 3;
+  $('c-ch').textContent = T('canais')[cfg.canal]; $('c-vol').textContent = cfg.vol ? '▮'.repeat(cfg.vol) : T('mudoVol');
+  $('z-c').classList.toggle('on', cfg.seguir);
+  document.querySelectorAll('#vel button').forEach(b => b.classList.toggle('on', +b.dataset.v === cfg.vel));
+  $('c-crt').classList.toggle('on', cfg.crt); $('c-cor').textContent = cfg.cor.toUpperCase();
+  $('tela').title = T('tituloTela'); $('legenda').title = T('histTitulo'); $('expandir').title = T('expandir'); document.documentElement.lang = cfg.lang;
+  if (!$('menu').hidden) montaMenu();
+  barra();
+  salvar();
+}
+const canal = d => { cfg.canal = (cfg.canal + d + CANAIS.length) % CANAIS.length; estatica = 3; cam.centrar = true; cfg.seguir = false; chiado(); aplicar(); };
+const volume = d => { cfg.vol = Math.max(0, Math.min(VOL.length - 1, cfg.vol + d)); bip(660); aplicar(); };
+const crt = () => { cfg.crt = !cfg.crt; aplicar(); };
+const trocaCor = () => { const k = Object.keys(PAL); cfg.cor = k[(k.indexOf(cfg.cor) + 1) % k.length]; aplicar(); };
+async function aplicaTamanho() { if (!window.app) return; const r = await app.tamanho(TAMS[cfg.tam]); app.zoomUI(r.f); }
+
+$('c-prev').onclick = () => canal(-1); $('c-next').onclick = () => canal(1);
+$('c-vm').onclick = () => volume(-1); $('c-vp').onclick = () => volume(1);
+$('c-crt').onclick = crt; $('c-cor').onclick = trocaCor;
+$('vel').innerHTML = VELS.map((v, i) => `<button data-v="${v}" title="Velocidade do tempo">${['⏸', '1×', '3×', '10×', '30×'][i]}</button>`).join('');
+$('vel').onclick = e => { const b = e.target.closest('button'); if (!b) return; cfg.vel = +b.dataset.v; aplicar(); osd(cfg.vel ? T('tempo') + ' ' + cfg.vel + 'x' : T('pausa')); };
+$('z-m').onclick = () => zoom(-1); $('z-p').onclick = () => zoom(1);
+$('z-c').onclick = () => { cfg.seguir = true; aplicar(); osd(T('seguindo')); };
+$('tela').addEventListener('wheel', e => { e.preventDefault(); zoom(e.deltaY < 0 ? 1 : -1); }, { passive: false });
+
+// ---------- janela: arrastar (feito por codigo: funciona em qualquer area), fechar pra bandeja ----------
+let arr = null, arrastou = false;
+$('tv').addEventListener('pointerdown', e => {
+  if (e.button !== 0 || e.target.closest('button, input, #menu, #pop, #iaw')) return;
+  arr = { x: e.clientX, y: e.clientY, mov: false, id: e.pointerId }; arrastou = false;
+});
+addEventListener('pointermove', e => {
+  if (!arr) return;
+  if (!arr.mov && Math.hypot(e.clientX - arr.x, e.clientY - arr.y) > 4) { arr.mov = true; try { $('tv').setPointerCapture(arr.id); } catch {} window.app?.arrasta(true); $('tv').classList.add('arrasta'); }
+  else if (arr.mov) window.app?.arrasta(false);
+});
+const solta = () => { if (arr?.mov) arrastou = true; arr = null; $('tv').classList.remove('arrasta'); };
+addEventListener('pointerup', solta); addEventListener('pointercancel', solta);
+$('tela').onclick = e => arrastou ? (arrastou = false) : e.target.closest('#zoom, #vel, #eng, #fechar, #expandir, #diario') ? 0 : pensar();
+$('fechar').onclick = () => window.app ? app.esconder() : close();
+
+// ---------- popup de texto (historico e diario expandido) ----------
+const abrePop = (titulo, corpo) => { $('pop').innerHTML = `<div class="mh"><b>${titulo}</b><button data-a="voltar">← ${T('voltar')}</button></div>${corpo}`; $('pop').hidden = false; $('menu').hidden = true; };
+function abreHist() {
+  const it = s.hist.slice().reverse().map(x => `<div class="hi"><i>${x.a} ${T('anos')} · ${T('estacoes')[x.e]}</i>${x.q ? '<b>' + esc(x.q) + ':</b> ' : ''}${esc(I18N.tr(x.x))}</div>`).join('');
+  abrePop(T('histTitulo'), it || '—');
+}
+const abreDiario = () => abrePop(T('diarioTitulo'), `<pre>${esc(textoDiario())}</pre>`);
+$('pop').onclick = e => { if (e.target.closest('[data-a]')) $('pop').hidden = true; };
+$('legenda').onclick = abreHist; $('z-h').onclick = abreHist; $('expandir').onclick = abreDiario; $('diario').onclick = abreDiario;
+
+// ---------- menu de configuracoes ----------
+const onoff = b => T(b ? 'ligado' : 'desligado');
+function montaMenu() {
+  const m = $('menu'), L = (id, rot, val) => `<button class="row" data-a="${id}"><span>${rot}</span><b>${val}</b></button>`;
+  const S2 = (id, rot, v) => `<div class="row sl"><span>${rot}</span><input type="range" min="0" max="10" value="${v}" data-s="${id}"></div>`;
+  m.innerHTML = `<div class="mh"><b>${T('config')}</b><button data-a="voltar">← ${T('voltar')}</button></div>` +
+    L('lang', T('idioma'), I18N.idiomas[cfg.lang]) + L('tam', T('tam'), T('tams')[cfg.tam]) + L('canal', T('canal'), `◀ ${T('canais')[cfg.canal]} ▶`) +
+    L('cor', T('cor'), cfg.cor.toUpperCase()) + L('crt', T('crt'), onoff(cfg.crt)) +
+    L('mestre', T('mestre'), cfg.vol ? '▮'.repeat(cfg.vol) : T('mudoVol')) + S2('volFx', T('fx'), cfg.volFx) + S2('volTxt', T('voz'), cfg.volTxt) + L('voz', T('vozEstilo'), T('vozes')[cfg.voz]) +
+    L('topo', T('topo'), onoff(janelaEstado.topo)) + L('barra', T('barra'), onoff(janelaEstado.barra)) + L('ia', T('cerebro'), iaAtiva ? T('iaOn') : T('iaOff')) +
+    `<div class="mf"><button data-a="esconder">${T('esconder')}</button><button data-a="sair" class="perigo">${T('sair')}</button></div>`;
+}
+const menu = (abre = $('menu').hidden) => { if (abre) { montaMenu(); $('pop').hidden = true; } $('menu').hidden = !abre; };
+$('eng').onclick = () => menu();
+$('menu').onclick = e => {
+  const b = e.target.closest('[data-a]'); if (!b) return;
+  const a = b.dataset.a, langs = Object.keys(I18N.idiomas), vozes = Object.keys(T('vozes'));
+  if (a === 'voltar') return menu(false);
+  if (a === 'lang') { cfg.lang = langs[(langs.indexOf(cfg.lang) + 1) % langs.length]; I18N.set(cfg.lang); Sim.setLang(cfg.lang); }
+  else if (a === 'tam') { cfg.tam = (cfg.tam + 1) % TAMS.length; aplicaTamanho(); }
+  else if (a === 'canal') canal(1);
+  else if (a === 'cor') trocaCor();
+  else if (a === 'crt') crt();
+  else if (a === 'mestre') { cfg.vol = (cfg.vol + 1) % VOL.length; bip(660); }
+  else if (a === 'voz') { cfg.voz = vozes[(vozes.indexOf(cfg.voz) + 1) % vozes.length]; for (let i = 0; i < 4; i++) setTimeout(() => clique(300), i * 90); }
+  else if (a === 'topo') { janelaEstado.topo = !janelaEstado.topo; window.app?.topo(janelaEstado.topo); }
+  else if (a === 'barra') { janelaEstado.barra = !janelaEstado.barra; window.app?.barra(janelaEstado.barra); }
+  else if (a === 'ia') return abreIA();
+  else if (a === 'esconder') { menu(false); return window.app ? app.esconder() : close(); }
+  else if (a === 'sair') { salvar(); return window.sair ? window.sair() : close(); }
+  aplicar();
+};
+$('menu').oninput = e => { const k = e.target.dataset.s; if (!k) return; cfg[k] = +e.target.value; salvar(); };
+$('menu').onchange = e => { const k = e.target.dataset.s; if (k === 'volFx') toca([523, 659]); else if (k === 'volTxt') for (let i = 0; i < 4; i++) setTimeout(() => clique(300), i * 90); };
+addEventListener('keydown', e => { if (e.key === 'Escape') { $('menu').hidden = true; $('pop').hidden = true; if (!$('iaw').hidden) $('iaw').hidden = true; } });
+
+// ---------- cerebro (IA): escolha do modelo conforme o PC, download com progresso ----------
+let iaInfoCache = null, iaProg = null;
+const gb = mb => mb >= 1000 ? (mb / 1024).toFixed(1) + ' GB' : mb + ' MB';
+async function carregaIA() { if (!window.app) return null; iaInfoCache = await app.iaInfo(); iaAtiva = !!iaInfoCache.ativo; return iaInfoCache; }
+async function abreIA() { if (!window.app) return; await carregaIA(); renderIA(iaInfoCache.ativo || iaInfoCache.recomendado); $('menu').hidden = true; $('iaw').hidden = false; }
+function renderIA(sel, msg = '') {
+  const info = iaInfoCache, w = $('iaw'), nomes = { leve: ['mLeve', 'mLeveD'], recomendado: ['mRec', 'mRecD'], profundo: ['mProf', 'mProfD'] }, m = info.modelos.find(x => x.id === sel);
+  w.dataset.sel = sel;
+  w.innerHTML = `<div class="mh"><b>${T('iaTitulo')}</b><button data-a="fechar">${T('iaFechar')}</button></div>` +
+    `<p>${T('iaTexto')}</p><p class="av">${T('iaAviso')}</p><p class="hw">${T('iaPc')}: ${info.ram} GB RAM · ${info.cpus} ${T('nucleos')}${info.gpu ? ' · ' + esc(info.gpu) : ''}</p>` +
+    info.modelos.map(x => `<button class="card${x.id === sel ? ' on' : ''}" data-m="${x.id}"><b>${T(nomes[x.id][0])}</b> <i>${gb(x.mb)}</i>` +
+      `${x.id === info.recomendado ? ` <em>${T('iaRecomendado')}</em>` : ''}${x.instalado ? ` <em>${T('iaInstalado')}</em>` : ''}${info.ativo === x.id ? ` <em>${T('iaEmUso')}</em>` : ''}` +
+      `<br><span>${T(nomes[x.id][1])}${x.aguenta ? '' : ' ⚠ ' + T('iaPesado')}</span></button>`).join('') +
+    (iaProg ? `<div class="bar"><i style="width:${iaProg.pct}%"></i></div><p>${T('iaBaixando')}: ${iaProg.pct}% · ${iaProg.mb} MB <button data-a="cancelar">${T('iaCancelar')}</button></p>`
+      : `<div class="mf"><button data-a="usar">${m.instalado ? T('iaUsar') : T('iaBaixar') + ' (' + gb(m.mb) + ')'}</button>${m.instalado ? `<button data-a="apagar">${T('iaApagar')}</button>` : ''}<button data-a="nao">${T('iaNao')}</button></div>`) +
+    (msg ? `<p class="av">${esc(msg)}</p>` : '');
+}
+$('iaw').onclick = async e => {
+  const w = $('iaw'), sel = w.dataset.sel, c = e.target.closest('[data-m]');
+  if (c) return renderIA(c.dataset.m);
+  const b = e.target.closest('[data-a]'); if (!b) return;
+  const a = b.dataset.a;
+  if (a === 'fechar') w.hidden = true;
+  else if (a === 'cancelar') app.iaCancelar();
+  else if (a === 'nao') { await app.iaUsar(null); await carregaIA(); w.hidden = true; osd(T('iaSemIa')); }
+  else if (a === 'apagar') { iaInfoCache = await app.iaRemover(sel); iaAtiva = !!iaInfoCache.ativo; renderIA(sel); }
+  else if (a === 'usar') {
+    const m = iaInfoCache.modelos.find(x => x.id === sel);
+    if (!m.instalado) {
+      iaProg = { pct: 0, mb: 0 }; renderIA(sel);
+      const r = await app.iaBaixar(sel); iaProg = null; await carregaIA();
+      if (r.erro) return renderIA(sel, `${T('iaErro')}: ${r.erro}. ${T('iaTentar')}.`);
+    }
+    await app.iaUsar(sel); await carregaIA(); w.hidden = true;
+    if (iaAtiva && !s.vida.perfil.ia) enriquecePerfil(s.vida);
+  }
+};
+if (window.app) {
+  app.estado().then(e => Object.assign(janelaEstado, e));
+  app.aoProgresso(d => { iaProg = d; if (!$('iaw').hidden && iaInfoCache) renderIA($('iaw').dataset.sel); });
+  aplicaTamanho();
+  carregaIA().then(i => { if (!i) return; if (iaAtiva && !s.vida.perfil.ia) enriquecePerfil(s.vida); if (!i.perguntado) setTimeout(abreIA, 1500); });
+}
+aplicar();
+</script>
+</html>
