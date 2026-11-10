@@ -6,6 +6,18 @@ Um fazendeiro de pixel art que vive numa telinha no canto do seu computador. Ele
 
 *A pixel-art farmer who lives in a little screen in the corner of your desktop. He works, falls in love, raises children and animals, makes friends and rivals, grows old and dies, and the next life starts in the same world, learning from what worked before. An AI running **on your own PC** gives him a voice and imagination.*
 
+<p align="center"><img src="docs/screenshots/01-roca-tubo.png" width="340" alt="Farmling: a fazenda com efeito de TV de tubo"></p>
+
+## Capturas de tela / Screenshots
+
+| | |
+|---|---|
+| <img src="docs/screenshots/02-roca-nitida.png" width="300"><br>**A roça** (a câmera segue o fazendeiro) | <img src="docs/screenshots/04-vila.png" width="300"><br>**A vila**, com o povo e os nomes |
+| <img src="docs/screenshots/05-casa-noite.png" width="300"><br>**Em casa**, à noite | <img src="docs/screenshots/03-mundo-inteiro.png" width="300"><br>**O mapa inteiro** (zoom 1x) |
+| <img src="docs/screenshots/12-chat.png" width="300"><br>**Conversa de verdade** com o fazendeiro (IA local) | <img src="docs/screenshots/08-diario.png" width="300"><br>**Diário**: o que ele sabe, aprendeu e viveu |
+| <img src="docs/screenshots/06-roca-fosforo-verde.png" width="300"><br>Modo **fósforo verde** | <img src="docs/screenshots/07-roca-ambar.png" width="300"><br>Modo **âmbar** |
+| <img src="docs/screenshots/11-cerebro-ia.png" width="300"><br>**Escolha do "cérebro" de IA** conforme o seu PC | <img src="docs/screenshots/10-configuracoes.png" width="300"><br>**Configurações** (idioma, tamanho, sons, bandeja…) |
+
 ## Instalar (Windows)
 
 Baixe `Farmling-Setup-x.y.z.exe` na página de Releases e execute. Na primeira abertura o jogo analisa o seu PC e oferece três "cérebros" de IA para baixar:
