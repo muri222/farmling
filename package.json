@@ -1,5 +1,5 @@
 {
-  "name": "vidinha",
+  "name": "life",
   "version": "1.0.0",
   "private": true,
   "main": "main.js",
@@ -15,12 +15,12 @@
   "dependencies": {
     "node-llama-cpp": "^3.22.3"
   },
-  "description": "Vidinha: um fazendeiro de pixel art que vive na tela do seu computador, com uma IA local que cria a história dele.",
+  "description": "Life?: um fazendeiro de pixel art que vive na tela do seu computador, com uma IA local que cria a história dele.",
   "author": "muri222",
   "build": {
-    "appId": "com.murillo.vidinha",
-    "productName": "Vidinha",
-    "copyright": "Vidinha",
+    "appId": "com.murillo.life",
+    "productName": "Life",
+    "copyright": "Life?",
     "directories": {
       "output": "dist"
     },
@@ -53,7 +53,8 @@
           ]
         }
       ],
-      "icon": "assets/icone.ico"
+      "icon": "assets/icone.ico",
+      "executableName": "Life"
     },
     "nsis": {
       "oneClick": false,
@@ -61,11 +62,11 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Vidinha",
+      "shortcutName": "Life",
       "language": "1046",
       "installerIcon": "assets/icone.ico",
       "uninstallerIcon": "assets/icone.ico",
-      "artifactName": "Vidinha-Setup-${version}.exe"
+      "artifactName": "Life-Setup-${version}.exe"
     }
   }
 }

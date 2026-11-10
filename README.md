@@ -1,4 +1,4 @@
-# Vidinha
+# Life?
 
 Um fazendeiro de pixel art que vive numa telinha no canto do seu computador. Ele trabalha, ama, tem filhos, faz amigos e inimigos, cria bichos, envelhece, morre e outro recomeça no mesmo mundo, aprendendo com o que deu certo antes. Uma IA que roda **no seu próprio PC** dá voz e imaginação a ele.
 
@@ -6,7 +6,7 @@ Um fazendeiro de pixel art que vive numa telinha no canto do seu computador. Ele
 
 ## Instalar (Windows)
 
-Baixe `Vidinha-Setup-x.y.z.exe` na página de Releases e execute. Na primeira abertura o jogo analisa o seu PC e oferece três "cérebros" de IA para baixar:
+Baixe `Life-Setup-x.y.z.exe` na página de Releases e execute. Na primeira abertura o jogo analisa o seu PC e oferece três "cérebros" de IA para baixar:
 
 | Cérebro | Tamanho | Para quem |
 |---|---|---|
@@ -36,7 +36,7 @@ npm test                                 # autoteste da simulação (sim.js)
 ## Gerar o instalador
 
 ```
-npm run dist     # cria dist/Vidinha-Setup-x.y.z.exe
+npm run dist     # cria dist/Life-Setup-x.y.z.exe
 ```
 
 O instalador **não leva modelo de IA dentro**; ele é baixado pelo jogo, direto do Hugging Face, quando o usuário escolhe.
