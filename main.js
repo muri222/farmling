@@ -77,7 +77,8 @@ function iaInfo() {
   const aguenta = m => ram >= m.ramMin && cpus >= m.cpuMin;
   return {
     ram: Math.round(ram * 10) / 10, cpus, cpu: os.cpus()[0]?.model?.trim() || '', gpu: gpuNome,
-    recomendado: aguenta(achaModelo('recomendado')) ? 'recomendado' : 'leve', perguntado: conf.perguntado, ativo: conf.ia,
+    // o 3B conversa bem melhor: recomendado quando o PC aguenta folgado (16 GB+ e 8+ nucleos)
+    recomendado: ram >= 16 && cpus >= 8 ? 'profundo' : aguenta(achaModelo('recomendado')) ? 'recomendado' : 'leve', perguntado: conf.perguntado, ativo: conf.ia,
     modelos: MODELOS.map(m => ({ id: m.id, mb: m.mb, instalado: fs.existsSync(caminho(m)), aguenta: aguenta(m) })),
   };
 }
@@ -115,12 +116,12 @@ ipcMain.on('ia:cancelar', () => cancela?.());
 ipcMain.handle('ia:usar', (_e, id) => { // id = null: sem IA
   const m = achaModelo(id);
   conf.ia = m && fs.existsSync(caminho(m)) ? id : null; conf.perguntado = true; salvaConf();
-  cerebro = null; return iaInfo();
+  cerebro = null; chatSes = null; return iaInfo();
 });
 ipcMain.handle('ia:remover', (_e, id) => {
   const m = achaModelo(id); if (!m) return iaInfo();
   try { fs.rmSync(caminho(m), { force: true }); } catch {}
-  if (conf.ia === id) { conf.ia = null; cerebro = null; salvaConf(); }
+  if (conf.ia === id) { conf.ia = null; cerebro = null; chatSes = null; salvaConf(); }
   return iaInfo();
 });
 
@@ -132,7 +133,7 @@ const carrega = () => cerebro ??= (async () => {
   const { getLlama, LlamaChatSession } = await import('node-llama-cpp');
   const llama = await getLlama({ gpu: false, build: 'never' });
   const modelo = await llama.loadModel({ modelPath: caminho(m) });
-  return { ctx: await modelo.createContext({ contextSize: 2048, threads: Math.max(2, Math.min(4, os.cpus().length >> 1)) }), LlamaChatSession };
+  return { ctx: await modelo.createContext({ contextSize: 6144, sequences: 2, threads: os.cpus().length >= 16 ? 6 : os.cpus().length >= 8 ? 4 : 2 }), LlamaChatSession };
 })().catch(e => { cerebro = null; throw e; });
 
 // A fala do fazendeiro vem daqui; null = sem IA, a tela usa as falas prontas
@@ -149,6 +150,29 @@ async function gera(p) {
       } finally { ses.dispose(); }
     } finally { seq.dispose(); }
   } catch (e) { console.error('ia:', e.message); return null; }
+}
+
+// Chat: sessao persistente (o personagem fica em cache; so a mensagem nova e processada) e resposta em streaming
+let chatSes = null;
+ipcMain.handle('ia:chat', (_e, p) => filaIA = filaIA.then(() => geraChat(p), () => geraChat(p)));
+async function geraChat(p) {
+  if (!conf.ia) return null;
+  try {
+    const { ctx, LlamaChatSession } = await carrega();
+    let novo = false;
+    if (!chatSes || chatSes.sid !== p.sid || chatSes.n >= 10) { // personagem mudou ou o contexto encheu: recomeca (o jogo manda o resumo da conversa)
+      if (chatSes) { try { chatSes.ses.dispose({ disposeSequence: false }); await chatSes.seq.clearHistory(); } catch {} }
+      const seq = chatSes?.seq || ctx.getSequence();
+      chatSes = { sid: p.sid, seq, n: 0, sit: '', ses: new LlamaChatSession({ contextSequence: seq, systemPrompt: p.sistema, autoDisposeSequence: false }) };
+      novo = true;
+    }
+    chatSes.n++;
+    const msg = (novo ? p.anterior : '') + (novo || p.situacao !== chatSes.sit ? p.situacao + '\n' : '') + p.fala;
+    chatSes.sit = p.situacao;
+    const texto = await chatSes.ses.prompt(msg, { maxTokens: p.max || 90, temperature: p.temp ?? .6, topP: .9, topK: 40, minP: .05, repeatPenalty: { penalty: 1.15 }, signal: AbortSignal.timeout(90000),
+      onTextChunk: t => janela?.webContents.send('ia:chunk', { id: p.id, t }) });
+    return { texto };
+  } catch (e) { console.error('chat:', e.message); chatSes = null; return null; }
 }
 
 // ---------- janela ----------

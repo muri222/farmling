@@ -85,7 +85,7 @@ const Sim = (() => {
     s.vida = {
       nome, idade: 18, dinheiro: 60, terra: 1, plantio: 0, ferramentas: 0,
       traits: { otimismo: t('otimismo'), humor: t('humor'), fe: t('fe'), ambicao: t('ambicao') },
-      par: null, amores: [], filhos: [], maxFilhos: pick(s, [0, 1, 2, 2, 3, 4]),
+      par: null, amores: [], filhos: [], maxFilhos: pick(s, [1, 1, 2, 2, 3, 4]),
       amigos: [], rel: {}, social: 0, bichos: [], pend: [], log: [], falas: [], licoes: [], perfil: perfilAleat(s), morteEm: 60 + rnd(s) * 30,
     };
     s.vida.bichos.push(novoBicho(s, 'galinha', true, 8), novoBicho(s, 'galinha', false, 8));
@@ -231,6 +231,8 @@ const Sim = (() => {
       }
     }
     if (vv.length < 10 && rnd(s) < .04) { const p = novoNpc(s, { idade: 18 + rnd(s) * 30 }); s.povo.push(p); }
+    const eleg = vv.filter(p => p.fem && !p.casado && p.idade >= 16 && p.idade <= 45).length; // a vila sempre recebe gente nova pra ele conhecer
+    if (eleg < 2 && vv.length < 20 && rnd(s) < .05) { const p = novoNpc(s, { fem: true, idade: 18 + rnd(s) * 14 }); s.povo.push(p); e('gente', `Chegou na vila ${p.nome}, ${ocupDe(p)}`); }
     if (vv.length > 7 && rnd(s) < .003) { const p = pick(s, vv.filter(x => x.idade > 18 && x.casado !== 'F' && !v.rel[x.id])); if (p) p.vivo = false; }
   }
   function festa(s, txt) { if (!s.evento) s.evento = { cena: 'festival', txt, fim: s.mes + 2 }; }
@@ -256,14 +258,22 @@ const Sim = (() => {
         e('ruim', pick(s, [`${p.nome} espalhou uma fofoca sobre a roça`, `${p.nome} soltou os bichos por vingança`, `${p.nome} cobrou uma dívida antiga na frente de todos`]), -.04);
       }
     }
+    if (!v.par && v.idade >= 18 && v.idade < 55) { // solteiro: corteja quem conhece e procura companhia
+      const alvos = conhecidos.filter(p => p.fem && !p.casado && p.idade >= 16 && p.idade <= 50 && v.rel[p.id].af > -.3);
+      if (alvos.length && rnd(s) < .15) {
+        const p = pick(s, alvos), r = v.rel[p.id]; r.af = clamp(r.af + .06, -1, 1);
+        if (!r.corte && r.af > .1) { r.corte = true; e('amor', `Está de olho em ${p.nome}`, .03); }
+      }
+      if (v.idade > 24 && s.mes % 8 === 0) v.social = Math.max(v.social, 3);
+    }
     v.amigos = vv.filter(p => v.rel[p.id]?.amigo).map(p => p.nome);
   }
 
   function amor(s, v, e) {
     const r = rnd(s), npc = v.par && s.povo.find(p => p.id === v.par.id);
     if (!v.par) {
-      if (v.amores.length < 2 && v.idade < 60 && r < .05) {
-        const cand = vivos(s).filter(p => p.fem && !p.casado && p.idade >= 16 && p.idade <= 50 && v.rel[p.id]?.af >= .45 && !v.amores.includes(p.nome));
+      if (v.amores.length < 2 && v.idade < 60 && r < .08) {
+        const cand = vivos(s).filter(p => p.fem && !p.casado && p.idade >= 16 && p.idade <= 50 && v.rel[p.id]?.af >= .35 && !v.amores.includes(p.nome));
         if (cand.length) { const p = pick(s, cand); v.par = { nome: p.nome, id: p.id, casados: false }; v.amores.push(p.nome); p.casado = 'F'; e('amor', `Se apaixonou por ${p.nome}`, .08); }
       }
     } else if (!v.par.casados) {
@@ -369,6 +379,8 @@ const Sim = (() => {
   const familia = v =>
     (v.par ? (v.par.casados ? 'casado com ' : 'namorando ') + v.par.nome : 'sozinho') +
     (v.filhos.length ? '; filhos: ' + v.filhos.map(f => `${f.nome} (${Math.floor(f.idade)})`).join(', ') : '; sem filhos');
+  const familiaIA = v => (v.par ? (v.par.casados ? `casado com ${v.par.nome}` : `namorando ${v.par.nome}`) : 'solteiro, ainda procurando alguém para formar família') +
+    (v.filhos.length ? `; filhos: ${v.filhos.map(f => `${f.nome} (${Math.floor(f.idade)})`).join(', ')}` : '; ainda sem filhos, mas sonha em ter');
   function bichosTxt(v) {
     const c = {};
     for (const b of v.bichos) {
@@ -394,7 +406,7 @@ const Sim = (() => {
       sistema: `Você é ${v.nome}, fazendeiro de ${Math.floor(v.idade)} anos que vive dentro de uma telinha. ` +
         `Você fala com um amigo que te observa do outro lado da tela; o destino juntou vocês. ` +
         `Seu jeito: ${persona(v)}; hoje está ${humor(v)}. ` + (P.sonho ? `Seu sonho: ${P.sonho}. Seu medo: ${P.medo}. Sua mania: ${P.mania}. Seu passado: ${P.passado}. ` : '') +
-        `Vida: $${Math.floor(v.dinheiro)}, ${v.terra} pedaço(s) de terra, bichos: ${bichosTxt(v)}, ${familia(v)}. ` +
+        `Vida: $${Math.floor(v.dinheiro)}, ${v.terra} pedaço(s) de terra, bichos: ${bichosTxt(v)}, ${familiaIA(v)}. ` +
         `Amigos: ${amigosTxt(s, v)}. Desafetos: ${rivaisTxt(s, v)}. Estação: ${ESTACAO[est(s)]}. ` +
         `O que você aprendeu na prática: ${insight(s)}. ` + (v.licoes.length ? `Lições suas: ${v.licoes.slice(-3).join(' | ')}. ` : '') +
         (s.evento ? `Algo estranho está acontecendo: ${s.evento.txt}. ` : '') +
@@ -410,15 +422,22 @@ const Sim = (() => {
   }
 
   // ---- chat: o jogador conversa com o fazendeiro ----
-  const promptChat = (s, hist, msg) => {
-    const v = s.vida, base = prompt(s).sistema.split('Regras:')[0];
-    const conversa = hist.slice(-8).map(m => `${m.q === 'u' ? 'Amigo' : v.nome}: ${m.x}`).join('\n');
-    return {
-      sistema: base + `Regras: responda ${lt()}, como ${v.nome}, em primeira pessoa, em NO MÁXIMO 2 frases curtas (até 200 caracteres), jeito simples de gente do campo, ` +
-        `sem listas, sem números, sem aspas, sem emoji, sem explicar. Responda ao que o amigo disse. Use SOMENTE os bichos, pessoas e fatos descritos acima; ` +
-        `se não souber ou não tiver algo, diga isso com naturalidade. Nunca invente bichos, pessoas ou posses.`,
-      pedido: (conversa ? `Conversa até agora:\n${conversa}\n` : '') + `Amigo: ${msg}\n${v.nome}:`, max: 80, temp: 0.55,
-    };
+  // O sistema (personalidade e jeito de conversar) e fixo e fica em cache na IA; a [Situação agora] muda e vai junto da mensagem.
+  const promptChat = (s, msg, hist) => {
+    const v = s.vida, P = v.perfil || {};
+    const nomeados = v.bichos.filter(b => b.nome).slice(0, 6).map(b => `${b.nome} (${ESP[b.e].n})`).join(', ');
+    const situacao = `[Situação agora: ${ESTACAO[est(s)]}; $${Math.floor(v.dinheiro)}; ${v.terra} pedaço(s) de terra; bichos: ${bichosTxt(v)}${nomeados ? ` (com nome: ${nomeados})` : ''}; ` +
+      `família: ${familiaIA(v)}; amigos: ${amigosTxt(s, v)}; desafetos: ${rivaisTxt(s, v)}; ` + (s.evento ? `acontecendo: ${s.evento.txt}; ` : '') +
+      (s.visitante ? `visita: ${s.visitante.nome}, ${s.visitante.papel}; ` : '') + `recentes: ${v.log.slice(-3).map(l => l.replace(/^\d+ anos: /, '')).join('; ') || 'nada'}; ` +
+      `humor: ${humor(v)}; aprendeu: ${insight(s)}` + (s.memUsuario?.length ? `; sobre o amigo: ${s.memUsuario.join(' | ')}` : '') + ']';
+    const anterior = hist?.length ? `[Conversa anterior: ${hist.slice(-6).map(m => `${m.q === 'u' ? 'Amigo' : v.nome}: ${m.x}`).join(' / ')}]\n` : '';
+    const sistema = `Você é ${v.nome}, fazendeiro de ${Math.floor(v.idade)} anos. Você mora dentro de uma telinha de computador e conversa com um amigo que olha pra tela ` +
+      `(você não sabe o nome dele: chame de "amigo"; nunca o chame pelo seu próprio nome). Seu jeito: ${persona(v)}. ` + (P.sonho ? `Seu sonho: ${P.sonho}. Seu medo: ${P.medo}. Sua mania: ${P.mania}. Seu passado: ${P.passado}. ` : '') +
+      `Fale como gente de verdade: direto, caloroso e com humor, em 1 a 3 frases curtas. Primeiro RESPONDA ao que o amigo disse ou perguntou (se ele perguntou sobre você, responda de verdade); ` +
+      `só depois, se quiser, acrescente algo da sua vida ou devolva uma pergunta. Use fatos concretos da linha [Situação agora] (bichos pelo nome, gente da vila). ` +
+      `Nunca invente bichos, pessoas ou posses. Sem listas, sem aspas, sem emoji. Responda ${lt()}. ` +
+      `Você pode se apaixonar, casar e ter filhos um dia; se estiver sozinho, diga que ainda procura alguém.`;
+    return { sid: `${v.nome}|${s.ciclo}|${LANG}|${P.sonho || ''}`, sistema, situacao, anterior, fala: msg, max: 90, temp: 0.6 };
   };
   const pedidoMemoria = s => ({ sistema: SIS(), max: 50,
     pedido: `Conversa recente entre o fazendeiro ${s.vida.nome} e seu amigo:\n${s.chat.slice(-10).map(m => `${m.q === 'u' ? 'Amigo' : s.vida.nome}: ${m.x}`).join('\n')}\n` +
@@ -492,11 +511,11 @@ if (typeof module !== 'undefined') {
   if (require.main === module) { // autoteste: node sim.js
     const assert = require('assert');
     const roda = (seed, anos) => {
-      const s = Sim.novo(seed), st = { mortes: 0, amigos: 0, rivais: 0, estranhos: 0, visitas: 0, bichosMax: 0, povoMax: 0, povoMin: 99, dinMax: 0, nasc: 0 };
+      const s = Sim.novo(seed), st = { comPar: 0, comFilhos: 0, mortes: 0, amigos: 0, rivais: 0, estranhos: 0, visitas: 0, bichosMax: 0, povoMax: 0, povoMin: 99, dinMax: 0, nasc: 0 };
       for (let i = 0; i < 12 * anos; i++) {
-        const ev = Sim.step(s);
+        const antes = s.vida, ev = Sim.step(s);
         for (const x of ev) {
-          if (x.tipo === 'morte') st.mortes++;
+          if (x.tipo === 'morte') { st.mortes++; if (antes.par) st.comPar++; if (antes.filhos.length) st.comFilhos++; }
           if (x.tipo === 'estranho') { st.estranhos++; assert(Sim.CENAS[x.cena], 'cena valida'); }
           if (x.visitante) st.visitas++;
           if (/virou (amigo|amiga)/.test(x.txt)) st.amigos++;

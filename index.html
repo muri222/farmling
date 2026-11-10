@@ -706,12 +706,17 @@ $('tela').onclick = e => arrastou ? (arrastou = false) : e.target.closest('#zoom
 $('fechar').onclick = () => window.app ? app.esconder() : close();
 
 // ---------- chat: conversar com o fazendeiro ----------
-let chatOcupado = false;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+let chatFila = [], chatRodando = false, chatSeq = 0, chunkCb = null;
+if (window.app) app.aoChunk(d => chunkCb?.(d));
 function atualizaLog() {
   const el = $('chatlog'); if (!el) return;
-  el.innerHTML = s.chat.map(m => `<div class="msg ${m.q}">${m.q === 'f' ? `<b>${esc(s.vida.nome)}</b>` : ''}${esc(m.x)}</div>`).join('') || `<p class="av">${T('chatVazio')}</p>`;
+  el.innerHTML = s.chat.map((m, i) => `<div class="msg ${m.q}" data-i="${i}">${m.q === 'f' ? `<b>${esc(s.vida.nome)}</b>` : ''}${esc(m.x)}</div>`).join('') || `<p class="av">${T('chatVazio')}</p>`;
   el.scrollTop = el.scrollHeight;
+}
+function mostraTexto(m, txt) { // atualiza so a bolha dele (nao recria a lista)
+  m.x = txt; const el = $('chatlog')?.querySelector(`[data-i="${s.chat.indexOf(m)}"]`);
+  if (el) { el.lastChild.textContent = txt; $('chatlog').scrollTop = $('chatlog').scrollHeight; }
 }
 function abreChat() {
   $('menu').hidden = true; $('pop').hidden = true;
@@ -720,28 +725,38 @@ function abreChat() {
     `<form id="chatf"><input id="chat-in" maxlength="200" placeholder="${T('chatDigite')}" autocomplete="off"><button type="submit">${T('chatEnviar')}</button></form>`;
   $('chat').hidden = false; atualizaLog(); $('chat-in').focus();
 }
-async function conversa(txt) {
-  chatOcupado = true;
-  const v = s.vida, hist = s.chat.slice();
-  s.chat.push({ q: 'u', x: txt }); v.traits.otimismo = Math.min(1, v.traits.otimismo + .01);
-  const m = { q: 'f', x: '…' }; s.chat.push(m); atualizaLog();
-  let r = Sim.limpa(tira(await pedeIA(Sim.promptChat(s, hist, txt), true)), 260);
-  if (r) { const k = Math.max(r.lastIndexOf('.'), r.lastIndexOf('!'), r.lastIndexOf('?')); if (k > 30 && k < r.length - 1) r = r.slice(0, k + 1); } // corta na ultima frase completa
-  else r = I18N.tr(Sim.respostaPronta(s, txt));
-  for (let i = 1; i <= r.length; i++) { // digita a resposta
-    m.x = r.slice(0, i); const el = $('chatlog')?.lastElementChild; if (el) { el.lastChild.textContent = m.x; $('chatlog').scrollTop = 1e9; }
-    if (i % 2 && r[i - 1] !== ' ') clique(300 - v.idade * 1.5);
-    await sleep(22);
+async function conversa(it) {
+  const v = s.vida, m = { q: 'f', x: '…' };
+  s.chat.push(m); atualizaLog();
+  const id = ++chatSeq; let acum = '', n = 0;
+  chunkCb = d => { // a resposta aparece enquanto a IA escreve
+    if (d.id !== id) return;
+    acum += d.t; mostraTexto(m, acum.replace(/\s+/g, ' ').trimStart() || '…');
+    if (++n % 2 === 0 && /\S/.test(d.t)) clique(300 - v.idade * 1.5);
+  };
+  const p = Sim.promptChat(s, it.txt, it.hist); p.id = id;
+  const r = iaAtiva && window.app ? await app.chat(p).catch(() => null) : null;
+  chunkCb = null;
+  let txt = r && Sim.limpa(tira(r.texto), 280);
+  if (txt) { const k = Math.max(txt.lastIndexOf('.'), txt.lastIndexOf('!'), txt.lastIndexOf('?')); if (k > 30 && k < txt.length - 1) txt = txt.slice(0, k + 1); } // corta na ultima frase completa
+  else { // sem IA (ou falhou): fala pronta, digitada
+    txt = I18N.tr(Sim.respostaPronta(s, it.txt));
+    for (let i = 1; i <= txt.length; i++) { mostraTexto(m, txt.slice(0, i)); if (i % 2 && txt[i - 1] !== ' ') clique(300 - v.idade * 1.5); await sleep(22); }
   }
-  m.x = r; if (s.chat.length > 40) s.chat.splice(0, s.chat.length - 40);
-  s.nChat = (s.nChat || 0) + 1; salvar(); atualizaLog();
-  if (s.nChat % 4 === 0) { // de tempos em tempos ele resume o que aprendeu sobre o amigo
+  mostraTexto(m, txt);
+  if (s.chat.length > 40) s.chat.splice(0, s.chat.length - 40);
+  s.nChat = (s.nChat || 0) + 1; salvar();
+  if (s.nChat % 4 === 0 && iaAtiva) { // de tempos em tempos ele resume o que aprendeu sobre o amigo
     const nota = Sim.limpa(tira(await pedeIA(Sim.pedidoMemoria(s), true)), 120);
     if (nota) { s.memUsuario.push(nota); if (s.memUsuario.length > 5) s.memUsuario.shift(); salvar(); }
   }
-  chatOcupado = false;
 }
-$('chat').onsubmit = e => { e.preventDefault(); const i = $('chat-in'), txt = i.value.trim(); if (!txt || chatOcupado) return; i.value = ''; conversa(txt); };
+async function rodaChat() { if (chatRodando) return; chatRodando = true; while (chatFila.length) await conversa(chatFila.shift()); chatRodando = false; }
+$('chat').onsubmit = e => { // pode digitar enquanto ele ainda responde: as mensagens entram numa fila
+  e.preventDefault(); const i = $('chat-in'), txt = i.value.trim(); if (!txt) return; i.value = '';
+  const hist = s.chat.slice(-8); s.chat.push({ q: 'u', x: txt }); s.vida.traits.otimismo = Math.min(1, s.vida.traits.otimismo + .01); atualizaLog();
+  chatFila.push({ txt, hist }); rodaChat();
+};
 $('chat').onclick = e => { if (e.target.closest('[data-a]')) $('chat').hidden = true; };
 $('z-chat').onclick = abreChat;
 

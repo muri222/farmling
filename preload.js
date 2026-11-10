@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('app', {
   barra: v => ipcRenderer.send('win:barra', v),
   iaInfo: () => ipcRenderer.invoke('ia:info'),
   iaBaixar: id => ipcRenderer.invoke('ia:baixar', id),
+  chat: p => ipcRenderer.invoke('ia:chat', p),
+  aoChunk: f => ipcRenderer.on('ia:chunk', (_e, d) => f(d)),
   iaCancelar: () => ipcRenderer.send('ia:cancelar'),
   iaUsar: id => ipcRenderer.invoke('ia:usar', id),
   iaRemover: id => ipcRenderer.invoke('ia:remover', id),
