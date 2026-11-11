@@ -95,6 +95,8 @@ const I18N = (() => {
   const subst = txt => txt.replace(/(?<![\p{L}])[\p{L}]+(?![\p{L}])/gu, w => SUBST[w.toLowerCase()] ? (w[0] === w[0].toUpperCase() && w.length > 1 && w !== w.toLowerCase() ? SUBST[w.toLowerCase()][0].toUpperCase() + SUBST[w.toLowerCase()].slice(1) : SUBST[w.toLowerCase()]) : w);
   let tr; // (definida abaixo) usada pelas regras recursivas
   const REGRAS = [
+    // frases que embrulham outro texto vem primeiro, senao uma regra mais curta (ex.: "teve um bebe") casa o texto inteiro
+    [/^Sabe o que foi\? (.+)\. Fiquei pensando nisso\.$/, (m, x) => `You know what it was? ${tr(x)}. Been thinking about it.`], [/^(.+)\. Cê viu isso também\?$/, (m, x) => `${tr(x)}. Did you see that too?`],
     [/^Colheita farta! Rendeu \$(\d+)$/, 'Bountiful harvest! Earned $$$1'],
     [/^Comprou um casal de (.+)$/, 'Bought a pair of $1'], [/^Comprou (?:um|uma) (.+)$/, 'Bought a $1'],
     [/^Vendeu (?:um|uma) (.+) pra não faltar comida$/, "Sold a $1 so food wouldn't run short"], [/^Faltou comida e (?:um|uma) (.+) não aguentou$/, "Food ran short and a $1 didn't make it"],
@@ -108,12 +110,11 @@ const I18N = (() => {
     [/^(.+) cresceu e foi morar na vila$/, '$1 grew up and moved to the village'], [/^Chegou na vila (.+), (.+)$/, '$1, a $2, moved to the village'], [/^Está de olho em (.+)$/, 'Has an eye on $1'], [/^Chegou (.+), (.+)$/, '$1, a $2, arrived'], [/^(.+) seguiu viagem$/, '$1 moved on'],
     [/^(.+) descansou aos (\d+) anos$/, '$1 passed away at $2'], [/^Vida nº (\d+): (.+) começa sua roça$/, 'Life #$1: $2 starts their farm'],
     [/^Já são (\d+) anos nessa lida\. Passa rápido, viu\.$/, "That's $1 years at this work already. Time flies."], [/^Tá (.+)\. Cada estação pede um jeito de trabalhar\.$/, "It's $1. Every season asks for its own way of working."],
-    [/^Tenho (.+) aqui na roça\. Dá trabalho, mas dá companhia\.$/, 'I have $1 here on the farm. It is work, but it is company.'], [/^Sabe o que eu queria\? (.+)\.$/, 'You know what I wanted? To $1.'],
-    [/^Tenho medo de (.+), mas não conta pra ninguém\.$/, "I'm afraid of $1, but don't tell anyone."], [/^Dizem que eu (.+)\. É verdade\.$/, "They say I $1. It's true."],
+    [/^Tenho (.+) aqui na roça\. Dá trabalho, mas dá companhia\.$/, 'I have $1 here on the farm. It is work, but it is company.'], [/^Sabe o que eu queria\? (.+)\.$/, (m, x) => `You know what I wanted? To ${tr(x)}.`],
+    [/^Tenho medo de (.+), mas não conta pra ninguém\.$/, (m, x) => `I'm afraid of ${tr(x)}, but don't tell anyone.`], [/^Dizem que eu (.+)\. É verdade\.$/, (m, x) => `People say this about me: ${tr(x)}. It's true.`],
     [/^(.+) é gente boa\. Faz falta quando some\.$/, '$1 is good people. I miss them when they are gone.'], [/^(.+) ainda me deve uma explicação\. Mas deixa pra lá\.$/, 'Still owes me an explanation. But never mind.'],
-    [/^Sabe o que foi\? (.+)\. Fiquei pensando nisso\.$/, (m, x) => `You know what it was? ${tr(x)}. Been thinking about it.`], [/^(.+) disse que eu falo sozinho\. Eu falo é com você\.$/, "$1 says I talk to myself. I'm talking to you."],
-    [/^(.+) anda por aqui\. Tem história pra contar, esse (.+)\.$/, '$1 is around. Has stories to tell, that $2.'], [/^(.+)\. Cê viu isso também\?$/, (m, x) => `${tr(x)}. Did you see that too?`],
-    [/^Às vezes lembro de um tal de (.+)\. Nunca conheci\. Estranho, né\?$/, "Sometimes I remember someone called $1. Never met them. Strange, huh?"], [/^Vou levando, (.+) hoje\. E você\?$/, (m, h) => `Getting by, feeling ${tr(h) === 'animado' ? 'cheerful' : h === 'abatido' ? 'down' : 'calm'} today. And you?`], [/^Sou (.+), tenho (\d+) anos e vivo dessa roça\.$/, "I'm $1, I'm $2 years old and I live off this farm."],
+    [/^(.+) disse que eu falo sozinho\. Eu falo é com você\.$/, "$1 says I talk to myself. I'm talking to you."],
+    [/^(.+) anda por aqui\. Tem história pra contar, esse (.+)\.$/, '$1 is around. Has stories to tell, that $2.'],     [/^Às vezes lembro de um tal de (.+)\. Nunca conheci\. Estranho, né\?$/, "Sometimes I remember someone called $1. Never met them. Strange, huh?"], [/^Vou levando, (.+) hoje\. E você\?$/, (m, h) => `Getting by, feeling ${tr(h) === 'animado' ? 'cheerful' : h === 'abatido' ? 'down' : 'calm'} today. And you?`], [/^Sou (.+), tenho (\d+) anos e vivo dessa roça\.$/, "I'm $1, I'm $2 years old and I live off this farm."],
     [/^Que lugar bonito, (.+)\.$/, 'What a lovely place, $1.'],
     [/^(.+): viveu (\d+) anos, (?:amou (.+)|nunca se apaixonou), (\d+) filho\(s\), (\d+) pedaço\(s\) de terra$/, (m, n, a, l, f, t) => `${n}: lived ${a} years, ${l ? 'loved ' + l.replace(' e ', ' and ') : 'never fell in love'}, ${f} child(ren), ${t} plot(s) of land`],
   ];
